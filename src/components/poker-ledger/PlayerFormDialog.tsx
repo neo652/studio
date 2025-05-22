@@ -1,7 +1,7 @@
 
 "use client";
 
-import type * as z from "zod";
+import * as z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { Button } from "@/components/ui/button";
@@ -54,12 +54,12 @@ export function PlayerFormDialog({ isOpen, onClose, onSubmit, defaultValues, mod
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { form.reset(); onClose(); } }}>
+    <Dialog open={isOpen} onOpenChange={(openState) => { if (!openState) { form.reset(); onClose(); } }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{mode === 'add' ? 'Add New Player' : 'Edit Player Name'}</DialogTitle>
           <DialogDescription>
-            {mode === 'add' ? 'Enter the player\'s name and initial buy-in amount.' : 'Update the player\'s name.'}
+            {mode === 'add' ? "Enter the player's name and initial buy-in amount." : "Update the player's name."}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -85,7 +85,7 @@ export function PlayerFormDialog({ isOpen, onClose, onSubmit, defaultValues, mod
                   <FormItem>
                     <FormLabel>Initial Buy-in</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g. 100" {...field} />
+                      <Input type="number" placeholder="e.g. 100" {...field} value={field.value ?? ''} onChange={field.onChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

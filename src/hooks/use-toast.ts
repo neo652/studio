@@ -1,3 +1,4 @@
+
 "use client"
 
 // Inspired by react-hot-toast library
@@ -136,7 +137,8 @@ let memoryState: State = { toasts: [] }
 function dispatch(action: Action) {
   memoryState = reducer(memoryState, action)
   listeners.forEach((listener) => {
-    listener(memoryState)
+    // listener(memoryState) // Original synchronous call
+    setTimeout(() => listener(memoryState), 0); // Make listener update asynchronous
   })
 }
 

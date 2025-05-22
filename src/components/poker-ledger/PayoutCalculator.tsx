@@ -22,7 +22,7 @@ interface PayoutPlayer {
   netAmount: number;
 }
 
-const FIXED_CHIP_VALUE_INR = 1.0; // Changed from 0.5 to 1.0
+const FIXED_CHIP_VALUE_INR = 1.0; 
 
 export function PayoutCalculator() {
   const { players: contextPlayers, totalPot } = usePokerLedger();
@@ -47,7 +47,7 @@ export function PayoutCalculator() {
     const newChipString = event.target.value;
     let newChipCount: number;
 
-    if (newChipString === "") { 
+    if (newChipString === "" || newChipString === "-") { 
       newChipCount = 0; 
     } else {
       newChipCount = parseInt(newChipString, 10);
@@ -121,7 +121,8 @@ export function PayoutCalculator() {
     }
     
     const totalValueFromEnteredChips = roundTo(currentTotalChipsInPlay * FIXED_CHIP_VALUE_INR, 2);
-    const valueDiscrepancy = roundTo(totalValueFromEnteredChips - totalPot, 2);
+    const expectedTotalChips = FIXED_CHIP_VALUE_INR > 0 ? roundTo(totalPot / FIXED_CHIP_VALUE_INR, 0) : 0;
+    const chipDiscrepancy = roundTo(currentTotalChipsInPlay - expectedTotalChips, 0);
 
 
     return {
@@ -129,55 +130,51 @@ export function PayoutCalculator() {
       chipValue: FIXED_CHIP_VALUE_INR,
       calculatedPlayers: playersWithCalculations,
       settlements,
-      valueDiscrepancy,
+      chipDiscrepancy,
+      expectedTotalChips,
       totalValueFromEnteredChips
     };
   }, [editablePlayers, totalPot]);
 
   const getDiscrepancyMessage = () => {
-    const { valueDiscrepancy, totalChipsInPlay } = derivedPayoutData;
+    const { chipDiscrepancy, totalChipsInPlay, expectedTotalChips } = derivedPayoutData;
 
     if (totalPot === 0 && totalChipsInPlay === 0 && editablePlayers.length > 0) {
-      return <p className="text-xs text-muted-foreground">Enter final chip counts. Total pot is ₹0.00.</p>;
+      return <p className="text-xs text-muted-foreground">Enter final chip counts. Total pot is ₹0.00 (Expected chips: 0).</p>;
     }
     if (editablePlayers.length === 0){
         return <p className="text-xs text-muted-foreground">Add players to start.</p>;
     }
     
-    const formattedDiscrepancy = Math.abs(valueDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const formattedChipDiscrepancy = Math.abs(chipDiscrepancy).toLocaleString('en-IN');
 
-    if (valueDiscrepancy === 0 && totalPot > 0) {
+    if (chipDiscrepancy === 0 && totalPot > 0) {
       return (
         <div className="flex items-center text-xs text-green-500">
           <CheckCircle2 className="h-3 w-3 mr-1" />
-          <span>Chip values reconcile with total pot. Calculations are balanced.</span>
+          <span>Entered chips ({totalChipsInPlay.toLocaleString('en-IN')}) match expected ({expectedTotalChips.toLocaleString('en-IN')}) from pot. Balanced.</span>
         </div>
       );
-    } else if (valueDiscrepancy > 0) {
+    } else if (chipDiscrepancy > 0) {
       return (
         <div className="flex items-center text-xs text-orange-500">
           <AlertTriangle className="h-3 w-3 mr-1" />
-          <span>Value Surplus: +{formattedDiscrepancy}. (Value of entered chips exceeds total pot). Review entries.</span>
+          <span>Chip Surplus: +{formattedChipDiscrepancy} chips. (Entered: {totalChipsInPlay.toLocaleString('en-IN')}, Expected: {expectedTotalChips.toLocaleString('en-IN')}). Review entries.</span>
         </div>
       );
-    } else if (valueDiscrepancy < 0) {
+    } else if (chipDiscrepancy < 0) {
       return (
         <div className="flex items-center text-xs text-destructive">
           <AlertTriangle className="h-3 w-3 mr-1" />
-          <span>Value Shortage: {formattedDiscrepancy}. (Total pot exceeds value of entered chips). Review entries.</span>
+          <span>Chip Shortage: {formattedChipDiscrepancy} chips. (Entered: {totalChipsInPlay.toLocaleString('en-IN')}, Expected: {expectedTotalChips.toLocaleString('en-IN')}). Review entries.</span>
         </div>
       );
     }
-    return <p className="text-xs text-muted-foreground">Enter final chip counts to see reconciliation status.</p>;
+    return <p className="text-xs text-muted-foreground">Enter final chip counts to see reconciliation. Expected chips from pot: {expectedTotalChips.toLocaleString('en-IN')}.</p>;
   };
   
   const getChipInputValue = (player: PayoutPlayer) => {
-    if (activeInputPlayerId === player.id) {
-      const inputElement = document.getElementById(`finalChips-${player.id}`) as HTMLInputElement;
-      if (inputElement) return inputElement.value;
-      return player.finalChips.toString(); 
-    }
-    if (player.finalChips === 0) {
+    if (player.finalChips === 0 && activeInputPlayerId !== player.id) {
         return ''; 
     }
     return player.finalChips.toString();
@@ -222,13 +219,19 @@ export function PayoutCalculator() {
             </span>
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Total Chips (from inputs):</span>
+            <span className="text-muted-foreground">Expected Total Chips (from Pot @ ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}/chip):</span>
+            <span className="font-semibold text-lg">
+              {derivedPayoutData.expectedTotalChips.toLocaleString('en-IN')}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Total Actual Chips (from inputs):</span>
             <span className="font-semibold text-lg">
               {derivedPayoutData.totalChipsInPlay.toLocaleString('en-IN')}
             </span>
           </div>
            <div className="flex justify-between items-center">
-            <span className="text-muted-foreground">Total Value from Chips (at ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}/chip):</span>
+            <span className="text-muted-foreground">Total Value from Actual Chips (at ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}/chip):</span>
             <span className="font-semibold text-lg">
               {derivedPayoutData.totalValueFromEnteredChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
@@ -317,14 +320,14 @@ export function PayoutCalculator() {
                 </ScrollArea>
               </>
             )}
-             {derivedPayoutData.settlements.length === 0 && editablePlayers.length > 0 && derivedPayoutData.totalValueFromEnteredChips > 0 && totalPot > 0 && derivedPayoutData.valueDiscrepancy === 0 && (
+             {derivedPayoutData.settlements.length === 0 && editablePlayers.length > 0 && derivedPayoutData.totalChipsInPlay > 0 && totalPot > 0 && derivedPayoutData.chipDiscrepancy === 0 && (
               <p className="text-muted-foreground text-center py-4">All players broke even or no payments needed.</p>
             )}
              {editablePlayers.length > 0 && derivedPayoutData.totalChipsInPlay > 0 && totalPot === 0 && (
                 <p className="text-muted-foreground text-center py-4">Total pot is ₹0.00. Cannot calculate meaningful payouts against investment.</p>
              )}
              {editablePlayers.length > 0 && derivedPayoutData.totalChipsInPlay === 0 && totalPot > 0 && (
-                <p className="text-muted-foreground text-center py-4">Enter final chip counts. Total chips currently zero.</p>
+                <p className="text-muted-foreground text-center py-4">Enter final chip counts. Total actual chips currently zero.</p>
              )}
           </>
         )}
@@ -333,10 +336,9 @@ export function PayoutCalculator() {
           <p>* Final Value (₹) = Player's Final Chips * ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}.</p>
           <p>* Net (₹) = Final Value (₹) - Total Invested (₹).</p>
           <p>* Settlement Transactions show the payments needed to reconcile all player net amounts.</p>
-          <p>* Value Discrepancy compares total value of entered final chips (at fixed rate) to the Total Pot Value (actual money invested).</p>
+          <p>* Chip Discrepancy compares total actual chips entered to the expected total chips (calculated from Total Pot Value at the fixed chip rate).</p>
         </div>
       </CardContent>
     </Card>
   );
 }
-

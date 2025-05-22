@@ -22,7 +22,7 @@ interface PayoutPlayer {
   netAmount: number;
 }
 
-const FIXED_CHIP_VALUE_INR = 0.5;
+const FIXED_CHIP_VALUE_INR = 1.0; // Changed from 0.5 to 1.0
 
 export function PayoutCalculator() {
   const { players: contextPlayers, totalPot } = usePokerLedger();
@@ -50,7 +50,6 @@ export function PayoutCalculator() {
     if (newChipString === "") { 
       newChipCount = 0; 
     } else {
-      // For type="text", parseInt is robust. "123" -> 123, "123a" -> 123, "a123" -> NaN
       newChipCount = parseInt(newChipString, 10);
       if (isNaN(newChipCount) || newChipCount < 0) {
         toast({
@@ -58,12 +57,7 @@ export function PayoutCalculator() {
           description: "Chip count must be a non-negative number.",
           variant: "destructive",
         });
-        // If input is invalid (NaN or negative) and not an empty string,
-        // we prevent the state update by returning. The input will snap back to last valid state.
         if (newChipString !== "" && (isNaN(newChipCount) || newChipCount < 0)) return;
-        
-        // If it was, for example, just "-" which becomes NaN, or empty string which became 0,
-        // ensure newChipCount is 0 for the state.
         if (isNaN(newChipCount)) newChipCount = 0; 
       }
     }
@@ -127,13 +121,12 @@ export function PayoutCalculator() {
     }
     
     const totalValueFromEnteredChips = roundTo(currentTotalChipsInPlay * FIXED_CHIP_VALUE_INR, 2);
-    // totalPot is the actual money invested, from context
     const valueDiscrepancy = roundTo(totalValueFromEnteredChips - totalPot, 2);
 
 
     return {
       totalChipsInPlay: currentTotalChipsInPlay,
-      chipValue: FIXED_CHIP_VALUE_INR, // Display fixed chip value
+      chipValue: FIXED_CHIP_VALUE_INR,
       calculatedPlayers: playersWithCalculations,
       settlements,
       valueDiscrepancy,
@@ -151,7 +144,7 @@ export function PayoutCalculator() {
         return <p className="text-xs text-muted-foreground">Add players to start.</p>;
     }
     
-    const formattedDiscrepancy = Math.abs(valueDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+    const formattedDiscrepancy = Math.abs(valueDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     if (valueDiscrepancy === 0 && totalPot > 0) {
       return (
@@ -180,15 +173,12 @@ export function PayoutCalculator() {
   
   const getChipInputValue = (player: PayoutPlayer) => {
     if (activeInputPlayerId === player.id) {
-      // For active input, if chips are 0 (e.g., user cleared it), allow empty string for typing.
-      // Otherwise, show current number.
       const inputElement = document.getElementById(`finalChips-${player.id}`) as HTMLInputElement;
-      if (inputElement) return inputElement.value; // Reflect exactly what user is typing if possible
-      return player.finalChips.toString(); // Fallback
+      if (inputElement) return inputElement.value;
+      return player.finalChips.toString(); 
     }
-    // For non-active inputs
     if (player.finalChips === 0) {
-        return ''; // Show empty for 0 if not focused for cleaner look
+        return ''; 
     }
     return player.finalChips.toString();
   };
@@ -200,13 +190,13 @@ export function PayoutCalculator() {
 
     if (inputElement && playerChipData) {
         const currentValue = inputElement.value;
-        if (currentValue === "" || currentValue === "-") { // If empty or just a minus on blur
-            if (playerChipData.finalChips !== 0) { // Only update if state is not already 0
+        if (currentValue === "" || currentValue === "-") { 
+            if (playerChipData.finalChips !== 0) { 
                  handleFinalChipChange(playerId, { target: { value: '0' } } as ChangeEvent<HTMLInputElement>);
             }
         } else {
             const parsed = parseInt(currentValue, 10);
-            if(isNaN(parsed) && playerChipData.finalChips !== 0) { // If invalid text that wasn't caught by onChange's return
+            if(isNaN(parsed) && playerChipData.finalChips !== 0) {
                  handleFinalChipChange(playerId, { target: { value: '0' } } as ChangeEvent<HTMLInputElement>);
             }
         }
@@ -228,7 +218,7 @@ export function PayoutCalculator() {
           <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Total Pot Value (Invested):</span>
             <span className="font-semibold text-lg text-accent">
-              {totalPot.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+              {totalPot.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="flex justify-between items-center">
@@ -240,7 +230,7 @@ export function PayoutCalculator() {
            <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Total Value from Chips (at ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}/chip):</span>
             <span className="font-semibold text-lg">
-              {derivedPayoutData.totalValueFromEnteredChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+              {derivedPayoutData.totalValueFromEnteredChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="mt-1 min-h-[16px]">
@@ -249,7 +239,7 @@ export function PayoutCalculator() {
           <div className="flex justify-between items-center mt-2">
               <span className="text-muted-foreground">Fixed Value Per Chip:</span>
               <span className="font-semibold text-sm">
-                {FIXED_CHIP_VALUE_INR.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                {FIXED_CHIP_VALUE_INR.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
         </div>
@@ -265,7 +255,13 @@ export function PayoutCalculator() {
             <ScrollArea className="h-[200px] sm:h-[250px] mb-6">
               <Table>
                 <TableHeader>
-                  <TableRow><TableHead>Player</TableHead><TableHead className="text-right w-28 sm:w-36">Final Chips</TableHead><TableHead className="text-right hidden sm:table-cell">Invested (₹)</TableHead><TableHead className="text-right hidden md:table-cell">Final Value (₹)</TableHead><TableHead className="text-right">Net (₹)</TableHead></TableRow>
+                  <TableRow>
+                    <TableHead>Player</TableHead>
+                    <TableHead className="text-right w-28 sm:w-36">Final Chips</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell">Invested (₹)</TableHead>
+                    <TableHead className="text-right hidden md:table-cell">Final Value (₹)</TableHead>
+                    <TableHead className="text-right">Net (₹)</TableHead>
+                  </TableRow>
                 </TableHeader>
                 <TableBody>
                   {derivedPayoutData.calculatedPlayers.map((player) => (
@@ -273,7 +269,7 @@ export function PayoutCalculator() {
                       <TableCell className="font-medium py-2">{player.name}</TableCell>
                       <TableCell className="text-right py-2">
                         <Input
-                          type="text" // Changed from number
+                          type="text" 
                           value={getChipInputValue(player)}
                           onFocus={() => setActiveInputPlayerId(player.id)}
                           onBlur={() => handleBlurFinalChips(player.id)}
@@ -283,10 +279,10 @@ export function PayoutCalculator() {
                           placeholder="0"
                         />
                       </TableCell>
-                      <TableCell className="text-right hidden sm:table-cell py-2">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
-                      <TableCell className="text-right hidden md:table-cell py-2">{player.finalValue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
+                      <TableCell className="text-right hidden sm:table-cell py-2">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell py-2">{player.finalValue.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
                       <TableCell className={`text-right font-semibold py-2 ${player.netAmount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
-                        {player.netAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                        {player.netAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -300,7 +296,11 @@ export function PayoutCalculator() {
                  <ScrollArea className="h-[150px] sm:h-[200px]">
                   <Table>
                     <TableHeader>
-                      <TableRow><TableHead>From Player</TableHead><TableHead>To Player</TableHead><TableHead className="text-right">Amount (₹)</TableHead></TableRow>
+                      <TableRow>
+                        <TableHead>From Player</TableHead>
+                        <TableHead>To Player</TableHead>
+                        <TableHead className="text-right">Amount (₹)</TableHead>
+                      </TableRow>
                     </TableHeader>
                     <TableBody>
                       {derivedPayoutData.settlements.map((payment) => (
@@ -308,7 +308,7 @@ export function PayoutCalculator() {
                           <TableCell className="py-2">{payment.fromPlayerName}</TableCell>
                           <TableCell className="py-2">{payment.toPlayerName}</TableCell>
                           <TableCell className="text-right font-medium py-2">
-                            {payment.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                            {payment.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </TableCell>
                         </TableRow>
                       ))}

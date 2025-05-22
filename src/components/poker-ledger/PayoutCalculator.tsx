@@ -37,7 +37,7 @@ export function PayoutCalculator() {
         id: p.id,
         name: p.name,
         totalInvested: p.totalInvested,
-        finalChips: 0, // Start with 0, user will input final counts
+        finalChips: 0, // Initialize with 0, will appear empty due to getChipInputValue and no placeholder
         finalValue: 0,
         netAmount: 0,
       }))
@@ -49,7 +49,7 @@ export function PayoutCalculator() {
     let newChipCount: number;
 
     if (newChipString === "" || newChipString === "-") {
-      newChipCount = 0; // Treat empty or just "-" as 0 for calculation purposes
+      newChipCount = 0; 
     } else {
       newChipCount = parseInt(newChipString, 10);
       if (newChipString !== "" && (isNaN(newChipCount) || newChipCount < 0)) {
@@ -58,10 +58,9 @@ export function PayoutCalculator() {
           description: "Chip count must be a non-negative number.",
           variant: "destructive",
         });
-        // Do not update state if input is invalid and not just empty/-
         return; 
       }
-      if (isNaN(newChipCount)) newChipCount = 0; // Ensure it's a number, default to 0 if parsing fails
+      if (isNaN(newChipCount)) newChipCount = 0; 
     }
     
     setEditablePlayers(prev =>
@@ -87,7 +86,7 @@ export function PayoutCalculator() {
         finalValue,
         netAmount,
       };
-    }).sort((a, b) => { // Keep original order from contextPlayers
+    }).sort((a, b) => { 
         const indexA = contextPlayers.findIndex(p => p.id === a.id);
         const indexB = contextPlayers.findIndex(p => p.id === b.id);
         return indexA - indexB;
@@ -106,10 +105,8 @@ export function PayoutCalculator() {
     const settlements: SettlementPayment[] = [];
     let keyId = 0;
 
-    // Create a deep copy for settlement calculation to not affect the original net amounts for display
     let tempDebtors = JSON.parse(JSON.stringify(debtors));
     let tempCreditors = JSON.parse(JSON.stringify(creditors));
-
 
     while (tempDebtors.length > 0 && tempCreditors.length > 0) {
       const debtor = tempDebtors[0];
@@ -121,7 +118,7 @@ export function PayoutCalculator() {
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
           toPlayerName: creditor.name,
-          amount: roundTo(amountToTransfer / 2, 2), // Display amount divided by 2
+          amount: roundTo(amountToTransfer / 2, 2), 
         });
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
@@ -156,12 +153,12 @@ export function PayoutCalculator() {
     }
     
     let discrepancyChipMessage = "";
-    if (totalActualChipsInPlay > 0 || totalPot > 0) { // Show discrepancy if any chips entered or pot exists
+    if (totalActualChipsInPlay > 0 || totalPot > 0) { 
         if (chipDiscrepancy === 0 && totalActualChipsInPlay === expectedTotalChips) {
             discrepancyChipMessage = "Chip counts reconcile with expected total chips.";
         } else if (chipDiscrepancy > 0) {
             discrepancyChipMessage = `Chip Surplus: ${chipDiscrepancy.toLocaleString('en-IN')} more chips entered than expected.`;
-        } else { // chipDiscrepancy < 0
+        } else { 
             discrepancyChipMessage = `Chip Shortage: ${Math.abs(chipDiscrepancy).toLocaleString('en-IN')} fewer chips entered than expected.`;
         }
     }
@@ -172,13 +169,13 @@ export function PayoutCalculator() {
             discrepancyMonetaryMessage = "Value of actual chips reconciles with total pot.";
         } else if (monetaryDiscrepancy > 0) {
             discrepancyMonetaryMessage = `Value Surplus: ${monetaryDiscrepancy.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} more in chip value than pot.`;
-        } else { // monetaryDiscrepancy < 0
+        } else { 
             discrepancyMonetaryMessage = `Value Shortage: ${Math.abs(monetaryDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} less in chip value than pot.`;
         }
     }
 
     return (
-        <div className="space-y-0.5 text-xs text-muted-foreground">
+        <div className="space-y-0.5 text-xs text-muted-foreground min-h-[64px]">
             {totalPot > 0 && <p>Fixed Value Per Chip: {FIXED_CHIP_VALUE_INR.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}.</p>}
             {(totalPot > 0 || totalActualChipsInPlay > 0) && (
               <>
@@ -196,19 +193,17 @@ export function PayoutCalculator() {
   
   const getChipInputValue = (player: PayoutPlayer) => {
     if (player.finalChips === 0 && activeInputPlayerId !== player.id) {
-        return ''; // Show empty if 0 and not focused
+        return ''; 
     }
     return player.finalChips.toString();
   };
 
   const handleBlurFinalChips = (playerId: string) => {
     setActiveInputPlayerId(null);
-    // If input is empty on blur, explicitly set to 0
     const playerChipData = editablePlayers.find(p => p.id === playerId);
     if (playerChipData) {
         const currentStringValue = (document.getElementById(`finalChips-${playerId}`) as HTMLInputElement)?.value;
         if (currentStringValue === "" || currentStringValue === "-") {
-            // Check if the actual state is not already 0 to avoid redundant updates
             if (playerChipData.finalChips !== 0) { 
                  handleFinalChipChange(playerId, { target: { value: '0' } } as ChangeEvent<HTMLInputElement>);
             }
@@ -239,7 +234,7 @@ export function PayoutCalculator() {
               {derivedPayoutData.totalActualChipsInPlay.toLocaleString('en-IN')}
             </span>
           </div>
-          <div className="mt-1 min-h-[64px]"> {/* Adjusted min-height for messages */}
+          <div className="mt-1">
             {getReconciliationMessages()}
           </div>
         </div>
@@ -276,7 +271,7 @@ export function PayoutCalculator() {
                           onChange={(e) => handleFinalChipChange(player.id, e)}
                           id={`finalChips-${player.id}`}
                           className="h-8 text-right w-full"
-                          placeholder="0"
+                          placeholder="" // Changed from "0" to ""
                         />
                       </TableCell>
                       <TableCell className="text-right hidden sm:table-cell py-2">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
@@ -339,5 +334,6 @@ export function PayoutCalculator() {
     </Card>
   );
 }
+    
 
     

@@ -48,8 +48,8 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [players, transactions, totalPot, isLoading, toast]);
 
-  const updateTotalPot = useCallback((updatedPlayers: Player[]) => {
-    const newTotalPot = updatedPlayers.reduce((sum, player) => sum + player.totalInvested, 0);
+  const updateTotalPot = useCallback((updatedPlayersList: Player[]) => {
+    const newTotalPot = updatedPlayersList.reduce((sum, player) => sum + player.totalInvested, 0);
     setTotalPot(newTotalPot);
   }, []);
 
@@ -75,23 +75,26 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       toast({ title: "Error", description: "Initial buy-in must be positive.", variant: "destructive" });
       return;
     }
-    if (players.find(p => p.name.toLowerCase() === name.toLowerCase())) {
-      toast({ title: "Error", description: `Player "${name}" already exists.`, variant: "destructive" });
-      return;
-    }
 
-    const newPlayer: Player = {
-      id: generateId(),
-      name,
-      chips: initialBuyIn,
-      totalInvested: initialBuyIn,
-    };
-    const updatedPlayers = [...players, newPlayer];
-    setPlayers(updatedPlayers);
-    addTransaction(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
-    updateTotalPot(updatedPlayers);
-    toast({ title: "Player Added", description: `${name} joined with ${initialBuyIn} chips.` });
-  }, [players, addTransaction, updateTotalPot, toast]);
+    setPlayers(prevPlayers => {
+      if (prevPlayers.find(p => p.name.toLowerCase() === name.toLowerCase())) {
+        toast({ title: "Error", description: `Player "${name}" already exists.`, variant: "destructive" });
+        return prevPlayers; // Return previous state if duplicate
+      }
+
+      const newPlayer: Player = {
+        id: generateId(),
+        name,
+        chips: initialBuyIn,
+        totalInvested: initialBuyIn,
+      };
+      const newPlayersArray = [...prevPlayers, newPlayer];
+      addTransaction(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
+      updateTotalPot(newPlayersArray); // Ensure this gets the latest array
+      toast({ title: "Player Added", description: `${name} joined with ${initialBuyIn} chips.` });
+      return newPlayersArray;
+    });
+  }, [addTransaction, updateTotalPot, toast]);
 
   const editPlayerName = useCallback((playerId: string, newName: string) => {
     if (!newName.trim()) {
@@ -108,17 +111,17 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
   }, [toast]);
 
   const removePlayer = useCallback((playerId: string) => {
-    const playerToRemove = players.find(p => p.id === playerId);
-    if (!playerToRemove) return;
-
-    // Note: Removing a player means their invested money STAYS in the pot for payout calculations.
-    // Their chips are removed from play.
-    const updatedPlayers = players.filter(p => p.id !== playerId);
-    setPlayers(updatedPlayers);
-    // Transactions related to the player are kept for historical record.
-    // Total pot remains unchanged as their investment is still part of the game's total.
-    toast({ title: "Player Removed", description: `${playerToRemove.name} has been removed from the game.` });
-  }, [players, toast]);
+    setPlayers(prevPlayers => {
+      const playerToRemove = prevPlayers.find(p => p.id === playerId);
+      if (!playerToRemove) {
+        return prevPlayers;
+      }
+      const updatedPlayers = prevPlayers.filter(p => p.id !== playerId);
+      // Total pot remains unchanged as their investment is still part of the game's total.
+      toast({ title: "Player Removed", description: `${playerToRemove.name} has been removed from the game.` });
+      return updatedPlayers;
+    });
+  }, [toast]);
 
   const performTransaction = useCallback((playerId: string, type: 'rebuy' | 'cut', amount: number) => {
     if (amount <= 0) {
@@ -126,59 +129,58 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     
-    const playerIndex = players.findIndex(p => p.id === playerId);
-    if (playerIndex === -1) {
-      toast({ title: "Error", description: "Player not found.", variant: "destructive" });
-      return;
-    }
-
-    const updatedPlayers = [...players];
-    const player = { ...updatedPlayers[playerIndex] };
-
-    if (type === 'rebuy') {
-      player.chips += amount;
-      player.totalInvested += amount;
-    } else if (type === 'cut') {
-      if (player.chips < amount) {
-        toast({ title: "Error", description: "Cannot cut more chips than player has.", variant: "destructive" });
-        return;
+    setPlayers(prevPlayers => {
+      const playerIndex = prevPlayers.findIndex(p => p.id === playerId);
+      if (playerIndex === -1) {
+        toast({ title: "Error", description: "Player not found.", variant: "destructive" });
+        return prevPlayers;
       }
-      player.chips -= amount;
-      player.totalInvested -= amount; // Player's investment is reduced
-      if (player.totalInvested < 0) { // Safeguard, though unlikely if chips are tied to investment
-        player.totalInvested = 0;
+
+      const updatedPlayers = [...prevPlayers]; // Create a mutable copy of the previous players array
+      const player = { ...updatedPlayers[playerIndex] }; // Create a mutable copy of the player object
+
+      if (type === 'rebuy') {
+        player.chips += amount;
+        player.totalInvested += amount;
+      } else if (type === 'cut') {
+        if (player.chips < amount) {
+          toast({ title: "Error", description: "Cannot cut more chips than player has.", variant: "destructive" });
+          return prevPlayers;
+        }
+        player.chips -= amount;
+        player.totalInvested -= amount; 
+        if (player.totalInvested < 0) { 
+          player.totalInvested = 0;
+        }
       }
-    }
-    
-    updatedPlayers[playerIndex] = player;
-    setPlayers(updatedPlayers);
-    addTransaction(player.id, player.name, type, amount, player.chips);
-    updateTotalPot(updatedPlayers); // This will now reflect the reduced totalPot if type was 'cut'
-    toast({ title: "Transaction Complete", description: `${player.name}'s chips updated by ${type === 'rebuy' ? '+' : '-'}${amount}.` });
-  }, [players, addTransaction, updateTotalPot, toast]);
+      
+      updatedPlayers[playerIndex] = player;
+      addTransaction(player.id, player.name, type, amount, player.chips);
+      updateTotalPot(updatedPlayers);
+      toast({ title: "Transaction Complete", description: `${player.name}'s chips updated by ${type === 'rebuy' ? '+' : '-'}${amount}.` });
+      return updatedPlayers;
+    });
+  }, [addTransaction, updateTotalPot, toast]);
 
   const adjustPayout = useCallback((playerId: string, adjustmentAmount: number) => {
-    // This function is for manual adjustments at the payout stage.
-    // It affects the player's chip balance for payout calculation but doesn't change totalInvested.
-    const playerIndex = players.findIndex(p => p.id === playerId);
-    if (playerIndex === -1) return;
+    setPlayers(prevPlayers => {
+      const playerIndex = prevPlayers.findIndex(p => p.id === playerId);
+      if (playerIndex === -1) return prevPlayers;
 
-    const updatedPlayers = [...players];
-    const player = { ...updatedPlayers[playerIndex] };
-    player.chips += adjustmentAmount; // Can be positive or negative
+      const updatedPlayers = [...prevPlayers];
+      const player = { ...updatedPlayers[playerIndex] };
+      player.chips += adjustmentAmount;
 
-    if (player.chips < 0) {
-       toast({ title: "Warning", description: `${player.name}'s chips went below zero after adjustment.`, variant: "destructive" });
-       // Optionally prevent chips from going negative or cap at 0
-       // player.chips = 0; 
-    }
+      if (player.chips < 0) {
+         toast({ title: "Warning", description: `${player.name}'s chips went below zero after adjustment.`, variant: "destructive" });
+      }
 
-    updatedPlayers[playerIndex] = player;
-    setPlayers(updatedPlayers);
-    addTransaction(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), player.chips);
-    // Total pot is not directly affected by payout adjustments, as it's a redistribution of existing value.
-    toast({ title: "Payout Adjusted", description: `${player.name}'s payout balance adjusted by ${adjustmentAmount}.` });
-  }, [players, addTransaction, toast]);
+      updatedPlayers[playerIndex] = player;
+      addTransaction(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), player.chips);
+      toast({ title: "Payout Adjusted", description: `${player.name}'s payout balance adjusted by ${adjustmentAmount}.` });
+      return updatedPlayers;
+    });
+  }, [addTransaction, toast]);
 
   const resetGame = useCallback(() => {
     setPlayers([]);
@@ -202,3 +204,4 @@ export const usePokerLedger = (): PokerContextType => {
   }
   return context;
 };
+

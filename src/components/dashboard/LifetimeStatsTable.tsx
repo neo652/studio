@@ -21,8 +21,6 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
           <TableRow>
             <TableHead>Player</TableHead>
             <TableHead className="text-right">Games Played</TableHead>
-            <TableHead className="text-right">Total Invested (₹)</TableHead>
-            <TableHead className="text-right">Total Chip Value (₹)</TableHead>
             <TableHead className="text-right">Total Net (₹)</TableHead>
           </TableRow>
         </TableHeader>
@@ -31,8 +29,6 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
             <TableRow key={playerStat.playerName} className="table-row-hover">
               <TableCell className="font-medium">{playerStat.playerName}</TableCell>
               <TableCell className="text-right">{playerStat.gamesPlayed.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{playerStat.totalInvestedAllGames.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{playerStat.totalFinalChipValueAllGames.toLocaleString()}</TableCell>
               <TableCell className={`text-right font-semibold ${playerStat.totalNetValueAllGames >= 0 ? 'text-green-500' : 'text-destructive'}`}>
                 {playerStat.totalNetValueAllGames.toLocaleString()}
               </TableCell>

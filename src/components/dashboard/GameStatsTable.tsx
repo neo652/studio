@@ -20,8 +20,6 @@ export function GameStatsTable({ stats }: GameStatsTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Player</TableHead>
-            <TableHead className="text-right">Invested (₹)</TableHead>
-            <TableHead className="text-right">Final Chips</TableHead>
             <TableHead className="text-right">Net Value (₹)</TableHead>
           </TableRow>
         </TableHeader>
@@ -29,8 +27,6 @@ export function GameStatsTable({ stats }: GameStatsTableProps) {
           {stats.map((playerStat) => (
             <TableRow key={playerStat.playerName} className="table-row-hover">
               <TableCell className="font-medium">{playerStat.playerName}</TableCell>
-              <TableCell className="text-right">{playerStat.totalInvested.toLocaleString()}</TableCell>
-              <TableCell className="text-right">{playerStat.finalChips.toLocaleString()}</TableCell>
               <TableCell className={`text-right font-semibold ${playerStat.netValue >= 0 ? 'text-green-500' : 'text-destructive'}`}>
                 {playerStat.netValue.toLocaleString()}
               </TableCell>

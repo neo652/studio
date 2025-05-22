@@ -4,7 +4,7 @@
 import * as React from "react";
 import { getDb } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import type { SavedGameDocument, PlayerInGameStats, PlayerLifetimeStats, Player, Transaction } from "@/types/poker";
+import type { SavedGameDocument, PlayerInGameStats, PlayerLifetimeStats } from "@/types/poker";
 import { GameStatsTable } from "./GameStatsTable";
 import { LifetimeStatsTable } from "./LifetimeStatsTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -79,13 +79,22 @@ export function DashboardClient() {
 
     const selectedGame = games.find(g => g.id === selectedGameId);
     if (selectedGame && Array.isArray(selectedGame.players)) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Calculating stats for game ID: ${selectedGame.id}`);
+      }
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
         const pChips = Number(player.chips) || 0;
         const pInvested = Number(player.totalInvested) || 0;
+
+        // Diagnostic log for Ankur in the specific game
+        if (player.name === "Ankur" && selectedGame.id === "S0yDJsx0tSKbwIfGomC0" && process.env.NODE_ENV === 'development') {
+          console.log(`Dashboard Stats for Ankur (Game S0yDJsx0tSKbwIfGomC0): Chips from Firestore: ${player.chips} (parsed as ${pChips}), Invested from Firestore: ${player.totalInvested} (parsed as ${pInvested}), DASHBOARD_CHIP_VALUE: ${DASHBOARD_CHIP_VALUE}`);
+        }
+        
         return {
           playerName: player.name,
-          totalInvested: pInvested,
-          finalChips: pChips,
+          totalInvested: pInvested, // Kept for potential future use, though table is simplified
+          finalChips: pChips,       // Kept for potential future use, though table is simplified
           netValue: (pChips * DASHBOARD_CHIP_VALUE) - pInvested,
         };
       });
@@ -217,4 +226,3 @@ export function DashboardClient() {
     </div>
   );
 }
-

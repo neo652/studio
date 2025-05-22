@@ -12,7 +12,8 @@ const firebaseConfig = {
   // measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID, // Optional
 };
 
-let app: FirebaseApp;
+let app: FirebaseApp | null = null; // Initialize app as potentially null
+let db: ReturnType<typeof getFirestore> | null = null; // Initialize db as potentially null
 
 // Check if all required config values are present
 const requiredConfigKeys = ['apiKey', 'authDomain', 'projectId', 'appId'];
@@ -20,36 +21,47 @@ const missingKeys = requiredConfigKeys.filter(key => !firebaseConfig[key as keyo
 
 if (missingKeys.length > 0 && typeof window !== 'undefined') { // Only log/error in client-side
   console.error(
-    `Firebase configuration is missing: ${missingKeys.join(', ')}. Please set them in your .env.local file.`
+    `Firebase configuration is missing: ${missingKeys.join(', ')}. ` +
+    `Please ensure these are correctly set in your .env.local file at the project root ` +
+    `and that you have RESTARTED your Next.js development server after changes.`
   );
-  // You might want to throw an error here or disable Firebase-dependent features
-  // For now, we'll let it try to initialize, which might fail gracefully or not.
+  // app will remain null, and db will remain null if config is missing
 }
 
 
 if (!getApps().length) {
-  try {
-    app = initializeApp(firebaseConfig);
-  } catch (e) {
-    console.error("Firebase initialization error:", e);
-    // Fallback or rethrow, depending on how critical Firebase is at this stage
-    // For this app, Firestore is optional, so we might not want to break the app
-    // @ts-ignore
-    app = null; // Indicate that app initialization failed
+  // Only attempt to initialize if config keys are present
+  if (missingKeys.length === 0) {
+    try {
+      app = initializeApp(firebaseConfig);
+    } catch (e) {
+      console.error("Firebase initialization error:", e);
+      app = null; // Ensure app is null if initialization fails
+    }
   }
 } else {
   app = getApps()[0];
 }
 
-// @ts-ignore
-const db = app ? getFirestore(app) : null; // Initialize db only if app was initialized
+if (app) {
+  try {
+    db = getFirestore(app);
+  } catch (e) {
+    console.error("Firestore initialization error:", e);
+    db = null; // Ensure db is null if getFirestore fails
+  }
+}
 
 // Export a getter for db to ensure it's only used if initialized
 const getDb = () => {
-  if (!db) {
-    if (typeof window !== 'undefined') { // Avoid server-side console logs for this warning
-       console.warn("Firestore is not initialized. Firebase config might be missing or invalid.");
-    }
+  if (!db && missingKeys.length === 0 && typeof window !== 'undefined') {
+     // This additional warning is if db is null even if config keys were supposedly present
+     // It might indicate an issue during initializeApp or getFirestore that wasn't a config key issue.
+     console.warn("Firestore is not available. Firebase app might have initialized, but Firestore could not be accessed.");
+  } else if (!db && missingKeys.length > 0 && typeof window !== 'undefined') {
+    // This reiterates the primary problem if db is null due to missing keys
+    // console.warn("Firestore is not available due to missing Firebase configuration. Please check .env.local and restart your server.");
+    // This specific console.warn might be redundant given the earlier console.error, so commented out for now.
   }
   return db;
 }

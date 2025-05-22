@@ -22,6 +22,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { useEffect } from "react";
 
 const formSchema = z.object({
   amount: z.coerce.number().positive("Amount must be a positive number."),
@@ -38,25 +39,36 @@ interface TransactionDialogProps {
 export function TransactionDialog({ isOpen, onClose, onSubmit, playerName, transactionType }: TransactionDialogProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      amount: 100,
-    },
+    // Default values are set in useEffect to correctly reflect transactionType
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        amount: transactionType === 'rebuy' ? 1000 : 100,
+      });
+    }
+  }, [isOpen, transactionType, form]);
 
   const handleFormSubmit = (values: z.infer<typeof formSchema>) => {
     onSubmit(values.amount);
-    form.reset();
+    // form.reset() will be handled by the effect or onOpenChange
     onClose();
   };
   
   const title = transactionType === 'rebuy' ? `Rebuy for ${playerName}` : `Cut Chips from ${playerName}`;
   const description = transactionType === 'rebuy' 
-    ? `Enter the amount of chips ${playerName} is rebuying.`
-    : `Enter the amount of chips to cut from ${playerName}'s stack.`;
+    ? `Enter the amount of chips ${playerName} is rebuying. Default is 1000.`
+    : `Enter the amount of chips to cut from ${playerName}'s stack. Default is 100.`;
   const buttonText = transactionType === 'rebuy' ? 'Process Rebuy' : 'Cut Chips';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) { form.reset(); onClose(); } }}>
+    <Dialog open={isOpen} onOpenChange={(open) => { 
+      if (!open) { 
+        // form.reset is handled by useEffect when isOpen changes to false after being true
+        onClose(); 
+      } 
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
@@ -71,14 +83,17 @@ export function TransactionDialog({ isOpen, onClose, onSubmit, playerName, trans
                 <FormItem>
                   <FormLabel>Amount</FormLabel>
                   <FormControl>
-                    <Input type="number" placeholder="e.g. 50" {...field} />
+                    <Input type="number" placeholder="e.g. 1000" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => { form.reset(); onClose(); }}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => { 
+                // form.reset is handled by useEffect when isOpen changes to false after being true
+                onClose(); 
+              }}>Cancel</Button>
               <Button type="submit">{buttonText}</Button>
             </DialogFooter>
           </form>

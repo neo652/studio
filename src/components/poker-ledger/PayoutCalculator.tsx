@@ -80,7 +80,7 @@ export function PayoutCalculator() {
         finalValue,
         netAmount,
       };
-    }).sort((a, b) => b.netAmount - a.netAmount);
+    }); // Removed sorting: .sort((a, b) => b.netAmount - a.netAmount);
 
     let debtors = playersWithCalculations
       .filter(p => p.netAmount < 0)
@@ -100,7 +100,7 @@ export function PayoutCalculator() {
       const creditor = creditors[0];
       const amountToTransfer = roundTo(Math.min(debtor.amount, creditor.amount), 2);
 
-      if (amountToTransfer > 0.005) {
+      if (amountToTransfer > 0.005) { // Threshold to avoid tiny settlements due to floating point
         settlements.push({
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
@@ -112,10 +112,11 @@ export function PayoutCalculator() {
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
       }
 
-      if (debtor.amount < 0.005) {
+
+      if (debtor.amount < 0.005) { // Adjusted threshold
         debtors.shift();
       }
-      if (creditor.amount < 0.005) {
+      if (creditor.amount < 0.005) { // Adjusted threshold
         creditors.shift();
       }
     }
@@ -183,17 +184,13 @@ export function PayoutCalculator() {
   const handleBlurFinalChips = (playerId: string) => {
     setActiveInputPlayerId(null);
     const playerChipData = editablePlayers.find(p => p.id === playerId);
-    const inputElement = document.getElementById(`finalChips-${playerId}`) as HTMLInputElement;
-
-    if (inputElement && playerChipData) {
-        const currentValue = inputElement.value;
-        if (currentValue === "" || currentValue === "-") {
-            if (playerChipData.finalChips !== 0) {
-                 handleFinalChipChange(playerId, { target: { value: '0' } } as ChangeEvent<HTMLInputElement>);
-            }
-        } else {
-            const parsed = parseInt(currentValue, 10);
-            if(isNaN(parsed) && playerChipData.finalChips !== 0) {
+    // It's generally better to rely on React state than direct DOM manipulation for values.
+    // The `handleFinalChipChange` already updates the state.
+    // This logic ensures that if a field is blurred while empty or invalid, it's set to 0.
+    if (playerChipData) {
+        const currentStringValue = (document.getElementById(`finalChips-${playerId}`) as HTMLInputElement)?.value;
+        if (currentStringValue === "" || currentStringValue === "-" || (parseInt(currentStringValue, 10) < 0) || isNaN(parseInt(currentStringValue,10)) ) {
+             if (playerChipData.finalChips !== 0) { // Only update if it's not already 0
                  handleFinalChipChange(playerId, { target: { value: '0' } } as ChangeEvent<HTMLInputElement>);
             }
         }

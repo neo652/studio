@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Landmark } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea } from "@/components/ui/scroll-area"; // Still used for settlements
 import type { SettlementPayment } from "@/types/poker";
 import { roundTo } from "@/utils/math";
 import { useToast } from '@/hooks/use-toast';
@@ -18,14 +18,13 @@ interface PayoutPlayer {
   id: string;
   name: string;
   totalInvested: number;
-  finalChips: number; // User-editable final chip count (numeric state)
-  finalValue: number; // Calculated: player.finalChips * FIXED_CHIP_VALUE_INR
-  netAmount: number; // Calculated: finalValue - totalInvested
+  finalChips: number; 
+  finalValue: number; 
+  netAmount: number; 
 }
 
-const FIXED_CHIP_VALUE_INR = 1; // Chip value fixed at ₹1.00
+const FIXED_CHIP_VALUE_INR = 1; 
 
-// Regex to validate chip input: allows empty, "0", or positive integers without leading zeros (unless it's "0" itself)
 const CHIP_INPUT_REGEX = /^(|0|[1-9]\d*)$/;
 
 
@@ -41,7 +40,7 @@ export function PayoutCalculator() {
       id: p.id,
       name: p.name,
       totalInvested: p.totalInvested,
-      finalChips: 0, // Numeric state always starts at 0 for a new player set
+      finalChips: 0, 
       finalValue: 0,
       netAmount: 0,
     }));
@@ -49,7 +48,7 @@ export function PayoutCalculator() {
 
     const newInputStrings: Record<string, string> = {};
     newEditablePlayers.forEach(p => {
-      newInputStrings[p.id] = ""; // Display string starts empty
+      newInputStrings[p.id] = ""; 
     });
     setInputStrings(newInputStrings);
 
@@ -72,9 +71,6 @@ export function PayoutCalculator() {
         )
       );
     }
-    // If input is invalid (e.g. "12a"), finalChips remains its previous valid value.
-    // Calculations will use that. inputStrings shows the invalid text.
-    // Blur handler will finalize/correct.
   };
 
   const handleFinalChipInputBlur = (playerId: string) => {
@@ -85,14 +81,14 @@ export function PayoutCalculator() {
     const player = editablePlayers.find(p => p.id === playerId);
     const playerName = player?.name || 'selected player';
 
-    if (CHIP_INPUT_REGEX.test(currentDisplayValue) && currentDisplayValue !== "") { // Valid non-empty integer string
-      finalNumericValue = parseInt(currentDisplayValue, 10); // Should be safe due to regex
-      finalStringForDisplay = finalNumericValue.toString(); // Canonical form, e.g. "0" or "123"
-    } else { // Empty, or "-", or other invalid characters
+    if (CHIP_INPUT_REGEX.test(currentDisplayValue) && currentDisplayValue !== "") { 
+      finalNumericValue = parseInt(currentDisplayValue, 10); 
+      finalStringForDisplay = finalNumericValue.toString(); 
+    } else { 
       finalNumericValue = 0;
-      finalStringForDisplay = ""; // Default to empty for display for 0 chips
+      finalStringForDisplay = ""; 
 
-      if (currentDisplayValue !== "" && currentDisplayValue !== "-") { // It was invalid, not just empty or hyphen
+      if (currentDisplayValue !== "" && currentDisplayValue !== "-") { 
         toast({
           title: "Invalid Chip Count",
           description: `Input for ${playerName} was invalid and has been reset to empty (0 chips).`,
@@ -153,16 +149,16 @@ export function PayoutCalculator() {
       const creditor = tempCreditors[0];
       const amountToTransfer = roundTo(Math.min(debtor.amount, creditor.amount), 2);
 
-      if (amountToTransfer > 0.005) {
+      if (amountToTransfer > 0.005) { // Avoid tiny float issues
         settlements.push({
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
           toPlayerName: creditor.name,
-          amount: roundTo(amountToTransfer / 2, 2),
+          amount: roundTo(amountToTransfer / 2, 2), // Halved amount for display
         });
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
-      } else { // Amount too small, break to prevent infinite loops with tiny floats
+      } else { 
         break;
       }
 
@@ -195,29 +191,29 @@ export function PayoutCalculator() {
     }
 
     let discrepancyChipMessage = "";
-    if (totalActualChipsInPlay > 0 || totalPot > 0) {
+    if (totalActualChipsInPlay > 0 || totalPot > 0) { // Only show if there's data
         if (chipDiscrepancy === 0 && totalActualChipsInPlay === expectedTotalChips) {
             discrepancyChipMessage = "Chip counts reconcile with expected total chips.";
         } else if (chipDiscrepancy > 0) {
             discrepancyChipMessage = `Chip Surplus: ${chipDiscrepancy.toLocaleString('en-IN')} more chips entered than expected.`;
-        } else {
+        } else { // chipDiscrepancy < 0
             discrepancyChipMessage = `Chip Shortage: ${Math.abs(chipDiscrepancy).toLocaleString('en-IN')} fewer chips entered than expected.`;
         }
     }
 
     let discrepancyMonetaryMessage = "";
-     if (totalActualChipsInPlay > 0 || totalPot > 0) {
+     if (totalActualChipsInPlay > 0 || totalPot > 0) { // Only show if there's data
         if (monetaryDiscrepancy === 0 && valueOfActualChips === totalPot) {
             discrepancyMonetaryMessage = "Value of actual chips reconciles with total pot.";
         } else if (monetaryDiscrepancy > 0) {
             discrepancyMonetaryMessage = `Value Surplus: ${monetaryDiscrepancy.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} more in chip value than pot.`;
-        } else {
+        } else { // monetaryDiscrepancy < 0
             discrepancyMonetaryMessage = `Value Shortage: ${Math.abs(monetaryDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} less in chip value than pot.`;
         }
     }
 
     return (
-        <div className="space-y-0.5 text-xs text-muted-foreground min-h-[64px]">
+        <div className="space-y-0.5 text-xs text-muted-foreground min-h-[64px]"> {/* min-h to reduce layout shift */}
             {totalPot > 0 && <p>Fixed Value Per Chip: {FIXED_CHIP_VALUE_INR.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}.</p>}
             {(totalPot > 0 || totalActualChipsInPlay > 0) && (
               <>
@@ -269,7 +265,7 @@ export function PayoutCalculator() {
             <p className="text-xs text-muted-foreground mb-3">
               * Edit final chip counts below. Final Value and Net are based on fixed chip value of ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}.
             </p>
-            <ScrollArea className="h-[200px] sm:h-[250px] mb-6">
+            <div className="mb-6"> {/* Wrapper for table to retain margin */}
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -286,13 +282,13 @@ export function PayoutCalculator() {
                       <TableCell className="font-medium py-2">{player.name}</TableCell>
                       <TableCell className="text-right py-2">
                         <Input
-                          type="text"
+                          type="text" // Changed to text
                           value={inputStrings[player.id] ?? ""}
                           onBlur={() => handleFinalChipInputBlur(player.id)}
                           onChange={(e) => handleChipDisplayChange(player.id, e.target.value)}
                           id={`finalChips-${player.id}`}
                           className="h-8 text-right w-full"
-                          placeholder=""
+                          placeholder="" // Empty placeholder
                         />
                       </TableCell>
                       <TableCell className="text-right hidden sm:table-cell py-2">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
@@ -304,12 +300,12 @@ export function PayoutCalculator() {
                   ))}
                 </TableBody>
               </Table>
-            </ScrollArea>
+            </div>
 
             {derivedPayoutData.settlements.length > 0 && (
               <>
                 <h3 className="text-lg font-semibold mb-2 mt-4">Settlement Transactions (Who Pays Whom)</h3>
-                 <ScrollArea className="h-[150px] sm:h-[200px]">
+                 <ScrollArea className="h-[150px] sm:h-[200px]"> {/* ScrollArea kept for settlements */}
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -343,14 +339,7 @@ export function PayoutCalculator() {
              )}
           </>
         )}
-        <div className="mt-6 text-xs text-muted-foreground space-y-1">
-          <p>* Final Chips = Manually entered chip count for each player at game end.</p>
-          <p>* Final Value (₹) = Player's Final Chips * Fixed Value Per Chip (₹{FIXED_CHIP_VALUE_INR.toFixed(2)}).</p>
-          <p>* Net (₹) = Final Value (₹) - Total Invested (₹).</p>
-          <p>* Chip Discrepancy = Total Actual Chips - Expected Total Chips (where Expected Total Chips = Total Pot Value / Fixed Value Per Chip).</p>
-          <p>* Monetary Discrepancy = Value of Actual Chips - Total Pot Value (where Value of Actual Chips = Total Actual Chips * Fixed Value Per Chip).</p>
-          <p>* Settlement Transactions show payments to reconcile player Net (₹) amounts. The amounts shown in this table are halved for display purposes.</p>
-        </div>
+        {/* Removed the help text section from here */}
       </CardContent>
     </Card>
   );

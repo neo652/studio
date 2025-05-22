@@ -16,13 +16,13 @@ const formatTimestamp = (isoString: string) => {
 const getTransactionTypeBadgeVariant = (type: TransactionType): "default" | "secondary" | "destructive" | "outline" => {
   switch (type) {
     case 'buy-in':
-      return 'default'; // Primary color often
+      return 'default';
     case 'rebuy':
-      return 'secondary'; // Green-ish if theme supports, or secondary
+      return 'secondary'; // Theme dependent, currently a reddish-brown
     case 'cut':
-      return 'outline'; // Orange-ish or warning
+      return 'destructive'; // Changed from 'outline' for better visual cue
     case 'payout_adjustment':
-      return 'destructive'; // Neutral or specific
+      return 'destructive'; 
     default:
       return 'default';
   }

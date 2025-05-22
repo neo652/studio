@@ -3,13 +3,13 @@
 
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import type { Player, Transaction, PokerState, PokerContextType, TransactionType, FirestoreGameData } from '@/types/poker';
+import type { Player, Transaction, PokerState, PokerContextType, FirestoreGameData, SavedGameSummary } from '@/types/poker';
 import { useToast } from '@/hooks/use-toast';
-import { getDb } from '@/lib/firebase'; // Import getDb
-import { doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { getDb } from '@/lib/firebase';
+import { doc, setDoc, getDoc, serverTimestamp, collection, addDoc, getDocs, query, orderBy } from 'firebase/firestore';
 
 const POKER_LEDGER_STORAGE_KEY = 'pokerLedgerState';
-const FIRESTORE_GAME_DOC_PATH = "pokerGames/defaultGame"; // Path for the single game document
+const FIRESTORE_GAMES_COLLECTION_PATH = "pokerGames";
 
 const PokerLedgerContext = createContext<PokerContextType | undefined>(undefined);
 
@@ -41,14 +41,12 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
   }, [toast]);
 
   useEffect(() => {
-    if (!isLoading) { // Only save to localStorage if not in initial loading phase
+    if (!isLoading) {
       try {
         const stateToStore: PokerState = { players, transactions, totalPot };
         localStorage.setItem(POKER_LEDGER_STORAGE_KEY, JSON.stringify(stateToStore));
       } catch (error) {
         console.error("Failed to save state to localStorage", error);
-        // Avoid toasting too frequently for localStorage errors if they are persistent
-        // toast({ title: "Error", description: "Could not save game progress to local storage.", variant: "destructive" });
       }
     }
   }, [players, transactions, totalPot, isLoading]);
@@ -58,7 +56,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     setTotalPot(newTotalPot);
   }, []);
 
-  const addTransaction = useCallback((playerId: string, playerName: string, type: TransactionType, amount: number, balanceAfter: number) => {
+  const addTransactionEntry = useCallback((playerId: string, playerName: string, type: TransactionType, amount: number, balanceAfter: number) => {
     const newTransaction: Transaction = {
       id: generateId(),
       playerId,
@@ -80,38 +78,27 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       toast({ title: "Error", description: "Initial buy-in must be positive.", variant: "destructive" });
       return;
     }
-
     setPlayers(prevPlayers => {
       if (prevPlayers.find(p => p.name.toLowerCase() === name.toLowerCase())) {
         toast({ title: "Error", description: `Player "${name}" already exists.`, variant: "destructive" });
         return prevPlayers;
       }
-
-      const newPlayer: Player = {
-        id: generateId(),
-        name,
-        chips: initialBuyIn,
-        totalInvested: initialBuyIn,
-      };
+      const newPlayer: Player = { id: generateId(), name, chips: initialBuyIn, totalInvested: initialBuyIn };
       const newPlayersArray = [...prevPlayers, newPlayer];
-      addTransaction(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
+      addTransactionEntry(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
       updateTotalPot(newPlayersArray);
       toast({ title: "Player Added", description: `${name} joined with ${initialBuyIn} chips.` });
       return newPlayersArray;
     });
-  }, [addTransaction, updateTotalPot, toast]);
+  }, [addTransactionEntry, updateTotalPot, toast]);
 
   const editPlayerName = useCallback((playerId: string, newName: string) => {
     if (!newName.trim()) {
       toast({ title: "Error", description: "Player name cannot be empty.", variant: "destructive" });
       return;
     }
-    setPlayers(prevPlayers =>
-      prevPlayers.map(p => (p.id === playerId ? { ...p, name: newName } : p))
-    );
-    setTransactions(prevTransactions => 
-      prevTransactions.map(t => (t.playerId === playerId ? { ...t, playerName: newName } : t))
-    );
+    setPlayers(prevPlayers => prevPlayers.map(p => (p.id === playerId ? { ...p, name: newName } : p)));
+    setTransactions(prevTransactions => prevTransactions.map(t => (t.playerId === playerId ? { ...t, playerName: newName } : t)));
     toast({ title: "Player Updated", description: `Player name changed to ${newName}.` });
   }, [toast]);
 
@@ -119,28 +106,34 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     setPlayers(prevPlayers => {
       const playerToRemove = prevPlayers.find(p => p.id === playerId);
       if (!playerToRemove) return prevPlayers;
-      const updatedPlayers = prevPlayers.filter(p => p.id !== playerId);
       toast({ title: "Player Removed", description: `${playerToRemove.name} has been removed.` });
-      return updatedPlayers;
+      // Note: totalPot will be updated naturally if the player had any totalInvested,
+      // but for payout calculations, their investment remains. This function only removes them from active play.
+      // If their investment should be removed from the pot, that's a different operation.
+      // For now, let's assume their investment stays for payouts, and they are just inactive.
+      // If investment should be removed:
+      // const updatedPlayers = prevPlayers.filter(p => p.id !== playerId);
+      // updateTotalPot(updatedPlayers);
+      // return updatedPlayers;
+      // Keeping them in for historical pot calculation unless specified otherwise for "remove"
+      return prevPlayers.filter(p => p.id !== playerId);
     });
   }, [toast]);
+
 
   const performTransaction = useCallback((playerId: string, type: 'rebuy' | 'cut', amount: number) => {
     if (amount <= 0) {
       toast({ title: "Error", description: "Transaction amount must be positive.", variant: "destructive" });
       return;
     }
-    
     setPlayers(prevPlayers => {
       const playerIndex = prevPlayers.findIndex(p => p.id === playerId);
       if (playerIndex === -1) {
         toast({ title: "Error", description: "Player not found.", variant: "destructive" });
         return prevPlayers;
       }
-
       const updatedPlayers = [...prevPlayers];
       const player = { ...updatedPlayers[playerIndex] };
-
       if (type === 'rebuy') {
         player.chips += amount;
         player.totalInvested += amount;
@@ -153,48 +146,47 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         player.totalInvested -= amount; 
         if (player.totalInvested < 0) player.totalInvested = 0;
       }
-      
       updatedPlayers[playerIndex] = player;
-      addTransaction(player.id, player.name, type, amount, player.chips);
+      addTransactionEntry(player.id, player.name, type, amount, player.chips);
       updateTotalPot(updatedPlayers);
       toast({ title: "Transaction Complete", description: `${player.name}'s chips updated by ${type === 'rebuy' ? '+' : '-'}${amount}.` });
       return updatedPlayers;
     });
-  }, [addTransaction, updateTotalPot, toast]);
+  }, [addTransactionEntry, updateTotalPot, toast]);
 
   const adjustPayout = useCallback((playerId: string, adjustmentAmount: number) => {
     setPlayers(prevPlayers => {
       const playerIndex = prevPlayers.findIndex(p => p.id === playerId);
       if (playerIndex === -1) return prevPlayers;
-
       const updatedPlayers = [...prevPlayers];
       const player = { ...updatedPlayers[playerIndex] };
       player.chips += adjustmentAmount;
-
       if (player.chips < 0) {
          toast({ title: "Warning", description: `${player.name}'s chips went below zero after adjustment.`, variant: "destructive" });
       }
-
       updatedPlayers[playerIndex] = player;
-      addTransaction(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), player.chips);
+      addTransactionEntry(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), player.chips);
       toast({ title: "Payout Adjusted", description: `${player.name}'s payout balance adjusted by ${adjustmentAmount}.` });
       return updatedPlayers;
     });
-  }, [addTransaction, toast]);
+  }, [addTransactionEntry, toast]);
 
   const resetGame = useCallback(() => {
     setPlayers([]);
     setTransactions([]);
     setTotalPot(0);
-    // localStorage.removeItem(POKER_LEDGER_STORAGE_KEY); // This will be cleared by the useEffect when states are empty
-    toast({ title: "New Game Started", description: "All previous game data has been cleared." });
+    toast({ title: "New Game Started", description: "All previous game data has been cleared from current session." });
   }, [toast]);
 
-  const saveGameToFirestore = async () => {
+  const saveGameToFirestore = async (): Promise<string | null> => {
     const db = getDb();
     if (!db) {
-      toast({ title: "Sync Error", description: "Firestore is not initialized. Check Firebase config.", variant: "destructive" });
-      return;
+      toast({ title: "Sync Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return null;
+    }
+    if (players.length === 0) {
+      toast({ title: "Save Error", description: "Cannot save an empty game (no players).", variant: "destructive" });
+      return null;
     }
     setIsSyncing(true);
     try {
@@ -202,51 +194,97 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         players,
         transactions,
         totalPot,
-        syncedAt: serverTimestamp(),
+        savedAt: serverTimestamp(),
       };
-      await setDoc(doc(db, FIRESTORE_GAME_DOC_PATH), gameData);
-      toast({ title: "Sync Success", description: "Game data saved to Cloud." });
+      // Game ID will be generated by Firestore automatically
+      const gameRef = await addDoc(collection(db, FIRESTORE_GAMES_COLLECTION_PATH), gameData);
+      toast({ title: "Sync Success", description: `Game saved to Cloud with ID: ${gameRef.id}.` });
+      return gameRef.id;
     } catch (error) {
       console.error("Error saving to Firestore:", error);
       toast({ title: "Sync Error", description: "Failed to save game data to Cloud.", variant: "destructive" });
+      return null;
     } finally {
       setIsSyncing(false);
     }
   };
 
-  const loadGameFromFirestore = async () => {
+  const fetchSavedGames = async (): Promise<SavedGameSummary[]> => {
     const db = getDb();
     if (!db) {
-      toast({ title: "Sync Error", description: "Firestore is not initialized. Check Firebase config.", variant: "destructive" });
-      return;
+      toast({ title: "Sync Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return [];
     }
     setIsSyncing(true);
     try {
-      const docRef = doc(db, FIRESTORE_GAME_DOC_PATH);
-      const docSnap = await getDoc(docRef);
+      const gamesQuery = query(collection(db, FIRESTORE_GAMES_COLLECTION_PATH), orderBy("savedAt", "desc"));
+      const querySnapshot = await getDocs(gamesQuery);
+      const games: SavedGameSummary[] = [];
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data() as FirestoreGameData;
+        // Ensure savedAt is handled correctly (it could be Firestore Timestamp)
+        let savedAtStr = "Unknown date";
+        if (data.savedAt && typeof data.savedAt.toDate === 'function') {
+          savedAtStr = data.savedAt.toDate().toLocaleString();
+        } else if (data.savedAt) {
+           try {
+            savedAtStr = new Date(data.savedAt as string).toLocaleString();
+           } catch (e) { /* ignore date parsing error, keep "Unknown date" */ }
+        }
 
-      if (docSnap.exists()) {
-        const gameData = docSnap.data() as Omit<FirestoreGameData, 'syncedAt'>; // syncedAt handled by server
-        setPlayers(gameData.players || []);
-        setTransactions(gameData.transactions || []);
-        setTotalPot(gameData.totalPot || 0);
-        // localStorage will be updated by the useEffect watching these state variables
-        toast({ title: "Sync Success", description: "Game data loaded from Cloud." });
-      } else {
-        toast({ title: "Sync Info", description: "No game data found in Cloud to load.", variant: "default" });
-      }
+        games.push({
+          id: docSnap.id,
+          savedAt: savedAtStr,
+          playerCount: data.players.length,
+          totalPot: data.totalPot,
+        });
+      });
+      return games;
     } catch (error) {
-      console.error("Error loading from Firestore:", error);
-      toast({ title: "Sync Error", description: "Failed to load game data from Cloud.", variant: "destructive" });
+      console.error("Error fetching game list from Firestore:", error);
+      toast({ title: "Sync Error", description: "Failed to fetch game list from Cloud.", variant: "destructive" });
+      return [];
     } finally {
       setIsSyncing(false);
     }
   };
+
+  const loadGameData = async (gameId: string): Promise<boolean> => {
+    const db = getDb();
+    if (!db) {
+      toast({ title: "Sync Error", description: "Firestore is not initialized.", variant: "destructive" });
+      return false;
+    }
+    setIsSyncing(true);
+    try {
+      const docRef = doc(db, FIRESTORE_GAMES_COLLECTION_PATH, gameId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const gameData = docSnap.data() as FirestoreGameData;
+        setPlayers(gameData.players || []);
+        setTransactions(gameData.transactions || []);
+        setTotalPot(gameData.totalPot || 0);
+        toast({ title: "Sync Success", description: `Game ${gameId} loaded from Cloud.` });
+        return true;
+      } else {
+        toast({ title: "Sync Info", description: `Game ${gameId} not found in Cloud.`, variant: "destructive" });
+        return false;
+      }
+    } catch (error) {
+      console.error("Error loading game from Firestore:", error);
+      toast({ title: "Sync Error", description: `Failed to load game ${gameId} from Cloud.`, variant: "destructive" });
+      return false;
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
 
   return (
     <PokerLedgerContext.Provider value={{ 
       players, transactions, totalPot, addPlayer, editPlayerName, removePlayer, performTransaction, 
-      adjustPayout, resetGame, isLoading, isSyncing, saveGameToFirestore, loadGameFromFirestore 
+      adjustPayout, resetGame, isLoading, isSyncing, saveGameToFirestore, fetchSavedGames, loadGameData
     }}>
       {children}
     </PokerLedgerContext.Provider>

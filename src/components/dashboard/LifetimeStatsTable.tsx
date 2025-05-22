@@ -1,0 +1,45 @@
+
+"use client";
+
+import type { PlayerLifetimeStats } from "@/types/poker";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
+
+interface LifetimeStatsTableProps {
+  stats: PlayerLifetimeStats[];
+}
+
+export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
+  if (stats.length === 0) {
+    return <p className="text-muted-foreground text-center py-4">No lifetime player data available.</p>;
+  }
+
+  return (
+    <ScrollArea className="h-[300px] sm:h-[400px] border rounded-md">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Player</TableHead>
+            <TableHead className="text-right">Games Played</TableHead>
+            <TableHead className="text-right">Total Invested (₹)</TableHead>
+            <TableHead className="text-right">Total Chip Value (₹)</TableHead>
+            <TableHead className="text-right">Total Net (₹)</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {stats.map((playerStat) => (
+            <TableRow key={playerStat.playerName} className="table-row-hover">
+              <TableCell className="font-medium">{playerStat.playerName}</TableCell>
+              <TableCell className="text-right">{playerStat.gamesPlayed.toLocaleString()}</TableCell>
+              <TableCell className="text-right">{playerStat.totalInvestedAllGames.toLocaleString()}</TableCell>
+              <TableCell className="text-right">{playerStat.totalFinalChipValueAllGames.toLocaleString()}</TableCell>
+              <TableCell className={`text-right font-semibold ${playerStat.totalNetValueAllGames >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+                {playerStat.totalNetValueAllGames.toLocaleString()}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </ScrollArea>
+  );
+}

@@ -1,3 +1,4 @@
+
 export interface Player {
   id: string;
   name: string;
@@ -28,7 +29,14 @@ export interface PokerContextType extends PokerState {
   editPlayerName: (playerId: string, newName: string) => void;
   removePlayer: (playerId: string) => void;
   performTransaction: (playerId: string, type: 'rebuy' | 'cut', amount: number) => void;
-  adjustPayout: (playerId: string, adjustmentAmount: number) => void;
+  adjustPayout: (playerId: string, adjustmentAmount: number) => void; // This adjusts CHIP balance before final calculation
   resetGame: () => void;
   isLoading: boolean;
+}
+
+export interface SettlementPayment {
+  id: string; // For React key
+  fromPlayerName: string;
+  toPlayerName: string;
+  amount: number;
 }

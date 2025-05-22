@@ -78,14 +78,20 @@ export function DashboardClient() {
     }
 
     const selectedGame = games.find(g => g.id === selectedGameId);
-    if (selectedGame) {
-      const stats: PlayerInGameStats[] = selectedGame.players.map(player => ({
-        playerName: player.name,
-        totalInvested: player.totalInvested,
-        finalChips: player.chips, // 'chips' field in Player type represents final chips at save time
-        netValue: (player.chips * DASHBOARD_CHIP_VALUE) - player.totalInvested,
-      }));
+    if (selectedGame && Array.isArray(selectedGame.players)) {
+      const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
+        const pChips = Number(player.chips) || 0;
+        const pInvested = Number(player.totalInvested) || 0;
+        return {
+          playerName: player.name,
+          totalInvested: pInvested,
+          finalChips: pChips,
+          netValue: (pChips * DASHBOARD_CHIP_VALUE) - pInvested,
+        };
+      });
       setPlayerGameStats(stats.sort((a,b) => b.netValue - a.netValue));
+    } else {
+      setPlayerGameStats([]);
     }
   }, [selectedGameId, games]);
 
@@ -98,23 +104,33 @@ export function DashboardClient() {
     const lifetimeMap: Record<string, { playerName: string; gamesPlayed: number; totalInvestedAllGames: number; totalFinalChipValueAllGames: number; totalNetValueAllGames: number; }> = {};
 
     games.forEach(game => {
-      game.players.forEach(player => {
-        if (!lifetimeMap[player.name]) {
-          lifetimeMap[player.name] = {
-            playerName: player.name,
-            gamesPlayed: 0,
-            totalInvestedAllGames: 0,
-            totalFinalChipValueAllGames: 0,
-            totalNetValueAllGames: 0,
-          };
-        }
-        const current = lifetimeMap[player.name];
-        current.gamesPlayed += 1;
-        current.totalInvestedAllGames += player.totalInvested;
-        const finalChipValueInGame = player.chips * DASHBOARD_CHIP_VALUE;
-        current.totalFinalChipValueAllGames += finalChipValueInGame;
-        current.totalNetValueAllGames += (finalChipValueInGame - player.totalInvested);
-      });
+      if (Array.isArray(game.players)) {
+        game.players.forEach(player => {
+          if (!player || typeof player.name !== 'string') {
+            console.warn("Skipping malformed player object in lifetime stats:", player);
+            return; 
+          }
+
+          if (!lifetimeMap[player.name]) {
+            lifetimeMap[player.name] = {
+              playerName: player.name,
+              gamesPlayed: 0,
+              totalInvestedAllGames: 0,
+              totalFinalChipValueAllGames: 0,
+              totalNetValueAllGames: 0,
+            };
+          }
+          const current = lifetimeMap[player.name];
+          const pChips = Number(player.chips) || 0;
+          const pInvested = Number(player.totalInvested) || 0;
+
+          current.gamesPlayed += 1;
+          current.totalInvestedAllGames += pInvested;
+          const finalChipValueInGame = pChips * DASHBOARD_CHIP_VALUE;
+          current.totalFinalChipValueAllGames += finalChipValueInGame;
+          current.totalNetValueAllGames += (finalChipValueInGame - pInvested);
+        });
+      }
     });
     setPlayerLifetimeStats(Object.values(lifetimeMap).sort((a,b) => b.totalNetValueAllGames - a.totalNetValueAllGames));
   }, [games]);
@@ -201,3 +217,4 @@ export function DashboardClient() {
     </div>
   );
 }
+

@@ -4,7 +4,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, VenetianMask, CloudUpload, CloudDownload, Loader2, LayoutDashboard } from "lucide-react";
+import { RefreshCw, VenetianMask, CloudUpload, CloudDownload, Loader2, LayoutDashboard, Info } from "lucide-react";
 import { usePokerLedger } from "@/contexts/PokerLedgerContext";
 import {
   AlertDialog,
@@ -17,15 +17,37 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { LoadGameDialog } from "./LoadGameDialog"; // New Dialog
+import { LoadGameDialog } from "./LoadGameDialog"; 
 
 export function Header() {
-  const { resetGame, saveGameToFirestore, isSyncing } = usePokerLedger();
+  const { 
+    resetGame, 
+    saveGameToFirestore, 
+    isSyncing, 
+    players, 
+    transactions, 
+    totalPot,
+    currentFirestoreGameId,
+    currentGameSavedAt 
+  } = usePokerLedger();
   const [isLoadGameDialogOpen, setIsLoadGameDialogOpen] = React.useState(false);
 
   const handleSaveGame = async () => {
-    await saveGameToFirestore();
+    await saveGameToFirestore(players, transactions, totalPot);
   };
+
+  const formatGameTimestamp = (isoString: string | null): string => {
+    if (!isoString) return "New Game";
+    try {
+      return new Date(isoString).toLocaleString();
+    } catch (e) {
+      return "Invalid Date";
+    }
+  };
+
+  const gameStatusText = currentFirestoreGameId 
+    ? `Game Loaded: ${formatGameTimestamp(currentGameSavedAt)} (ID: ${currentFirestoreGameId.substring(0,6)}...)`
+    : "Current Session: New Game";
 
   return (
     <>
@@ -34,50 +56,55 @@ export function Header() {
           <VenetianMask className="h-10 w-10 text-primary" />
           <h1 className="text-4xl font-bold text-primary">Poker Ledger</h1>
         </div>
-        <div className="flex items-center space-x-2 flex-wrap justify-center sm:justify-end gap-y-2">
-          <Link href="/dashboard" passHref>
-            <Button variant="outline" title="View Dashboard" disabled={isSyncing}>
-              <LayoutDashboard className="mr-2 h-4 w-4" />
-              Dashboard
+        <div className="flex flex-col items-center sm:items-end space-y-2 sm:space-y-0">
+            <div className="text-xs text-muted-foreground mb-1 flex items-center">
+                <Info size={14} className="mr-1 text-primary"/> {gameStatusText}
+            </div>
+            <div className="flex items-center space-x-2 flex-wrap justify-center sm:justify-end gap-y-2">
+            <Link href="/dashboard" passHref>
+                <Button variant="outline" title="View Dashboard" disabled={isSyncing}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                Dashboard
+                </Button>
+            </Link>
+            <Button 
+                variant="outline" 
+                onClick={() => setIsLoadGameDialogOpen(true)} 
+                disabled={isSyncing}
+                title="Load game data from Cloud"
+            >
+                {isSyncing && isLoadGameDialogOpen ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudDownload className="mr-2 h-4 w-4" />}
+                Load
             </Button>
-          </Link>
-          <Button 
-            variant="outline" 
-            onClick={() => setIsLoadGameDialogOpen(true)} 
-            disabled={isSyncing}
-            title="Load game data from Cloud"
-          >
-            {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudDownload className="mr-2 h-4 w-4" />}
-            Load
-          </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleSaveGame} 
-            disabled={isSyncing}
-            title="Save current game data to Cloud"
-          >
-            {isSyncing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
-            Save
-          </Button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={isSyncing} title="Start a new game">
-                <RefreshCw className="mr-2 h-4 w-4" /> New Game
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will clear all current game data (players, transactions, etc.) in your browser and start a fresh game. This action cannot be undone for local data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction onClick={resetGame}>Start New Game</AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+            <Button 
+                variant="outline" 
+                onClick={handleSaveGame} 
+                disabled={isSyncing || players.length === 0}
+                title={players.length === 0 ? "Add players to enable save" : (currentFirestoreGameId ? "Update current game in Cloud" : "Save current game to Cloud")}
+            >
+                {isSyncing && !isLoadGameDialogOpen ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CloudUpload className="mr-2 h-4 w-4" />}
+                {currentFirestoreGameId ? 'Update' : 'Save'}
+            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                <Button variant="destructive" disabled={isSyncing} title="Start a new game">
+                    <RefreshCw className="mr-2 h-4 w-4" /> New Game
+                </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    This will clear all current game data (players, transactions, etc.) in your browser and start a fresh session. This action cannot be undone for local data.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={resetGame}>Start New Game</AlertDialogAction>
+                </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            </div>
         </div>
       </header>
       <LoadGameDialog

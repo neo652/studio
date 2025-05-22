@@ -22,23 +22,30 @@ export interface PokerState {
   players: Player[];
   transactions: Transaction[];
   totalPot: number;
+  currentFirestoreGameId: string | null; // ID of the game loaded from/saved to Firestore
+  currentGameSavedAt: string | null; // Timestamp of when the current game was last saved/loaded
 }
 
 // Firestore data structure for a single game document
-export interface FirestoreGameData extends PokerState {
-  savedAt: any; // Firestore ServerTimestamp or a Date object on client
-  // gameId is the document ID in Firestore, not stored within the document itself usually
+export interface FirestoreGameData {
+  players: Player[];
+  transactions: Transaction[];
+  totalPot: number;
+  savedAt: any; // Firestore ServerTimestamp on save, Date on load
+  lastUpdatedAt?: any; // Firestore ServerTimestamp on update
 }
 
 // Summary for listing games
 export interface SavedGameSummary {
   id: string; // Firestore document ID
-  savedAt: string; // Formatted date string
+  savedAt: string; // Formatted date string (from serverTimestamp)
   playerCount: number;
   totalPot: number;
 }
 
-export interface PokerContextType extends PokerState {
+export interface PokerContextType extends Omit<PokerState, 'currentFirestoreGameId' | 'currentGameSavedAt'> {
+  currentFirestoreGameId: string | null;
+  currentGameSavedAt: string | null; // Make it available in context type
   addPlayer: (name: string, initialBuyIn: number) => void;
   editPlayerName: (playerId: string, newName: string) => void;
   removePlayer: (playerId: string) => void;
@@ -47,9 +54,9 @@ export interface PokerContextType extends PokerState {
   resetGame: () => void;
   isLoading: boolean;
   isSyncing: boolean;
-  saveGameToFirestore: () => Promise<string | null>; // Returns new gameId or null
-  fetchSavedGames: () => Promise<SavedGameSummary[]>; // For the load dialog
-  loadGameData: (gameId: string) => Promise<boolean>; // Loads a specific game by ID into context
+  saveGameToFirestore: (playersToSave: Player[], transactionsToSave: Transaction[], currentTotalPot: number) => Promise<string | null>;
+  fetchSavedGames: () => Promise<SavedGameSummary[]>;
+  loadGameData: (gameId: string) => Promise<boolean>;
 }
 
 export interface SettlementPayment {

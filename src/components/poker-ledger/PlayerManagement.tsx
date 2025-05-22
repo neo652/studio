@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PlusCircle, Edit3, Trash2, Repeat, MinusCircle, UsersRound } from "lucide-react";
-import { PlayerFormDialog } from "./PlayerFormDialog";
+import { PlayerFormDialog, type PlayerFormDialogSubmitData } from "./PlayerFormDialog";
 import { TransactionDialog } from "./TransactionDialog";
 import {
   AlertDialog,
@@ -21,38 +21,71 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import type { Player } from "@/types/poker";
-// ScrollArea import is removed as it's no longer used here
+import { useToast } from "@/hooks/use-toast";
+
 
 export function PlayerManagement() {
   const { players, addPlayer, editPlayerName, removePlayer, performTransaction } = usePokerLedger();
-  const [isAddPlayerDialogOpen, setIsAddPlayerDialogOpen] = useState(false);
-  const [isEditPlayerDialogOpen, setIsEditPlayerDialogOpen] = useState(false);
+  const { toast } = useToast();
+
+  const [isPlayerFormOpen, setIsPlayerFormOpen] = useState(false);
+  const [playerFormMode, setPlayerFormMode] = useState<'add' | 'editName'>('add');
+  
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
   
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [transactionType, setTransactionType] = useState<'rebuy' | 'cut' | null>(null);
 
-  const handleAddPlayerSubmit = (data: { name: string; initialBuyIn?: number }) => {
-    if (data.name && data.initialBuyIn) {
-      addPlayer(data.name, data.initialBuyIn);
+  const handlePlayerFormSubmit = (data: PlayerFormDialogSubmitData) => {
+    if (playerFormMode === 'add') {
+      let playersAddedCount = 0;
+      if (data.defaultPlayersToAdd && data.initialBuyIn) {
+        data.defaultPlayersToAdd.forEach(name => {
+          // addPlayer already checks for duplicates and toasts, so we rely on that
+          addPlayer(name, data.initialBuyIn!);
+          playersAddedCount++;
+        });
+      }
+      if (data.customPlayerName && data.initialBuyIn) {
+         // addPlayer already checks for duplicates and toasts
+        addPlayer(data.customPlayerName, data.initialBuyIn);
+        playersAddedCount++;
+      }
+      if (playersAddedCount > 0) {
+        // Toast for overall success, individual errors handled by addPlayer
+        // toast({ title: "Players Processed", description: `Attempted to add ${playersAddedCount} player(s).`});
+      }
+    } else if (playerFormMode === 'editName' && selectedPlayer && data.editedName) {
+      if (players.some(p => p.name.toLowerCase() === data.editedName!.toLowerCase() && p.id !== selectedPlayer.id)) {
+        toast({
+          title: "Error",
+          description: `Player name "${data.editedName}" is already in use.`,
+          variant: "destructive",
+        });
+        return; // Keep dialog open
+      }
+      editPlayerName(selectedPlayer.id, data.editedName);
     }
-  };
-
-  const handleEditPlayerSubmit = (data: { name: string }) => {
-    if (selectedPlayer && data.name) {
-      editPlayerName(selectedPlayer.id, data.name);
-    }
+    setIsPlayerFormOpen(false); // Close dialog on successful submission or if no players were added
   };
 
   const handleTransactionSubmit = (amount: number) => {
     if (selectedPlayer && transactionType) {
       performTransaction(selectedPlayer.id, transactionType, amount);
     }
+    setIsTransactionDialogOpen(false);
   };
 
-  const openEditDialog = (player: Player) => {
+  const openAddPlayerDialog = () => {
+    setPlayerFormMode('add');
+    setSelectedPlayer(null); // Clear selected player for add mode
+    setIsPlayerFormOpen(true);
+  };
+
+  const openEditNameDialog = (player: Player) => {
+    setPlayerFormMode('editName');
     setSelectedPlayer(player);
-    setIsEditPlayerDialogOpen(true);
+    setIsPlayerFormOpen(true);
   };
 
   const openTransactionDialog = (player: Player, type: 'rebuy' | 'cut') => {
@@ -60,6 +93,8 @@ export function PlayerManagement() {
     setTransactionType(type);
     setIsTransactionDialogOpen(true);
   };
+  
+  const existingPlayerNamesLowerCase = players.map(p => p.name.toLowerCase());
 
   return (
     <Card className="shadow-lg">
@@ -68,13 +103,13 @@ export function PlayerManagement() {
           <UsersRound className="h-6 w-6 text-primary" />
           <CardTitle>Player Management</CardTitle>
         </div>
-        <Button onClick={() => setIsAddPlayerDialogOpen(true)}>
-          <PlusCircle className="mr-2 h-4 w-4" /> Add Player
+        <Button onClick={openAddPlayerDialog}>
+          <PlusCircle className="mr-2 h-4 w-4" /> Add Players
         </Button>
       </CardHeader>
       <CardContent>
         {players.length === 0 ? (
-          <p className="text-muted-foreground text-center py-4">No players added yet. Click "Add Player" to start.</p>
+          <p className="text-muted-foreground text-center py-4">No players added yet. Click "Add Players" to start.</p>
         ) : (
           <Table>
             <TableHeader>
@@ -98,7 +133,7 @@ export function PlayerManagement() {
                     <Button variant="ghost" size="icon" onClick={() => openTransactionDialog(player, 'cut')} title="Cut Chips">
                       <MinusCircle className="h-4 w-4 text-orange-500" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(player)} title="Edit Name">
+                    <Button variant="ghost" size="icon" onClick={() => openEditNameDialog(player)} title="Edit Name">
                       <Edit3 className="h-4 w-4" />
                     </Button>
                      <AlertDialog>
@@ -129,28 +164,22 @@ export function PlayerManagement() {
       </CardContent>
 
       <PlayerFormDialog
-        isOpen={isAddPlayerDialogOpen}
-        onClose={() => setIsAddPlayerDialogOpen(false)}
-        onSubmit={handleAddPlayerSubmit}
-        mode="add"
+        isOpen={isPlayerFormOpen}
+        onClose={() => setIsPlayerFormOpen(false)}
+        onSubmit={handlePlayerFormSubmit}
+        mode={playerFormMode}
+        defaultValuesForEdit={selectedPlayer || undefined}
+        existingPlayerNamesWhileAdding={existingPlayerNamesLowerCase}
       />
-      {selectedPlayer && (
-        <>
-          <PlayerFormDialog
-            isOpen={isEditPlayerDialogOpen}
-            onClose={() => setIsEditPlayerDialogOpen(false)}
-            onSubmit={handleEditPlayerSubmit}
-            defaultValues={selectedPlayer}
-            mode="editName"
-          />
+      
+      {selectedPlayer && transactionType && ( // Ensure both are set for TransactionDialog
           <TransactionDialog
-            isOpen={isTransactionDialogOpen && transactionType !== null}
+            isOpen={isTransactionDialogOpen}
             onClose={() => setIsTransactionDialogOpen(false)}
             onSubmit={handleTransactionSubmit}
             playerName={selectedPlayer.name}
-            transactionType={transactionType!} 
+            transactionType={transactionType} 
           />
-        </>
       )}
     </Card>
   );

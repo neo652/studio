@@ -24,6 +24,15 @@ export interface PokerState {
   totalPot: number; // Sum of all player's totalInvested
 }
 
+// Firestore data structure
+export interface FirestoreGameData {
+  players: Player[];
+  transactions: Transaction[];
+  totalPot: number;
+  syncedAt: any; // Firestore ServerTimestamp
+}
+
+
 export interface PokerContextType extends PokerState {
   addPlayer: (name: string, initialBuyIn: number) => void;
   editPlayerName: (playerId: string, newName: string) => void;
@@ -32,6 +41,9 @@ export interface PokerContextType extends PokerState {
   adjustPayout: (playerId: string, adjustmentAmount: number) => void; // This adjusts CHIP balance before final calculation
   resetGame: () => void;
   isLoading: boolean;
+  isSyncing: boolean;
+  saveGameToFirestore: () => Promise<void>;
+  loadGameFromFirestore: () => Promise<void>;
 }
 
 export interface SettlementPayment {

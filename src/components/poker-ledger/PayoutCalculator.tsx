@@ -106,9 +106,14 @@ export function PayoutCalculator() {
     const settlements: SettlementPayment[] = [];
     let keyId = 0;
 
-    while (debtors.length > 0 && creditors.length > 0) {
-      const debtor = debtors[0];
-      const creditor = creditors[0];
+    // Create a deep copy for settlement calculation to not affect the original net amounts for display
+    let tempDebtors = JSON.parse(JSON.stringify(debtors));
+    let tempCreditors = JSON.parse(JSON.stringify(creditors));
+
+
+    while (tempDebtors.length > 0 && tempCreditors.length > 0) {
+      const debtor = tempDebtors[0];
+      const creditor = tempCreditors[0];
       const amountToTransfer = roundTo(Math.min(debtor.amount, creditor.amount), 2);
 
       if (amountToTransfer > 0.005) { 
@@ -116,14 +121,14 @@ export function PayoutCalculator() {
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
           toPlayerName: creditor.name,
-          amount: amountToTransfer,
+          amount: roundTo(amountToTransfer / 2, 2), // Display amount divided by 2
         });
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
       }
 
-      if (debtor.amount < 0.005) debtors.shift();
-      if (creditor.amount < 0.005) creditors.shift();
+      if (debtor.amount < 0.005) tempDebtors.shift();
+      if (creditor.amount < 0.005) tempCreditors.shift();
     }
     
     return {
@@ -328,7 +333,7 @@ export function PayoutCalculator() {
           <p>* Net (₹) = Final Value (₹) - Total Invested (₹).</p>
           <p>* Chip Discrepancy = Total Actual Chips - Expected Total Chips (where Expected Total Chips = Total Pot Value / Fixed Value Per Chip).</p>
           <p>* Monetary Discrepancy = Value of Actual Chips - Total Pot Value (where Value of Actual Chips = Total Actual Chips * Fixed Value Per Chip).</p>
-          <p>* Settlement Transactions show payments to reconcile player Net (₹) amounts.</p>
+          <p>* Settlement Transactions show payments to reconcile player Net (₹) amounts. The amounts shown in this table are halved for display purposes.</p>
         </div>
       </CardContent>
     </Card>

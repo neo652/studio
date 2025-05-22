@@ -2,6 +2,11 @@
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 
+// Debug log for environment variable
+if (typeof window !== 'undefined') { // Only log in client-side where it's used
+  console.log('NEXT_PUBLIC_FIREBASE_API_KEY from env:', process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+}
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -58,11 +63,8 @@ const getDb = () => {
      // This additional warning is if db is null even if config keys were supposedly present
      // It might indicate an issue during initializeApp or getFirestore that wasn't a config key issue.
      console.warn("Firestore is not available. Firebase app might have initialized, but Firestore could not be accessed.");
-  } else if (!db && missingKeys.length > 0 && typeof window !== 'undefined') {
-    // This reiterates the primary problem if db is null due to missing keys
-    // console.warn("Firestore is not available due to missing Firebase configuration. Please check .env.local and restart your server.");
-    // This specific console.warn might be redundant given the earlier console.error, so commented out for now.
   }
+  // The case where db is null due to missingKeys is already covered by the console.error above.
   return db;
 }
 

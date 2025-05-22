@@ -23,6 +23,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useEffect } from "react";
+import * as React from "react";
 
 const formSchema = z.object({
   amount: z.coerce.number().positive("Amount must be a positive number."),
@@ -45,7 +46,7 @@ export function TransactionDialog({ isOpen, onClose, onSubmit, playerName, trans
   useEffect(() => {
     if (isOpen) {
       form.reset({
-        amount: transactionType === 'rebuy' ? 1000 : 100,
+        amount: transactionType === 'rebuy' ? 1000 : 1000, // Default cut chips also 1000
       });
     }
   }, [isOpen, transactionType, form]);
@@ -59,12 +60,12 @@ export function TransactionDialog({ isOpen, onClose, onSubmit, playerName, trans
   const title = transactionType === 'rebuy' ? `Rebuy for ${playerName}` : `Cut Chips from ${playerName}`;
   const description = transactionType === 'rebuy' 
     ? `Enter the amount of chips ${playerName} is rebuying. Default is 1000.`
-    : `Enter the amount of chips to cut from ${playerName}'s stack. Default is 100.`;
+    : `Enter the amount of chips to cut from ${playerName}'s stack. Default is 1000.`;
   const buttonText = transactionType === 'rebuy' ? 'Process Rebuy' : 'Cut Chips';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { 
-      if (!open) { 
+    <Dialog open={isOpen} onOpenChange={(openState) => { 
+      if (!openState) { 
         // form.reset is handled by useEffect when isOpen changes to false after being true
         onClose(); 
       } 
@@ -91,7 +92,6 @@ export function TransactionDialog({ isOpen, onClose, onSubmit, playerName, trans
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => { 
-                // form.reset is handled by useEffect when isOpen changes to false after being true
                 onClose(); 
               }}>Cancel</Button>
               <Button type="submit">{buttonText}</Button>
@@ -102,3 +102,4 @@ export function TransactionDialog({ isOpen, onClose, onSubmit, playerName, trans
     </Dialog>
   );
 }
+

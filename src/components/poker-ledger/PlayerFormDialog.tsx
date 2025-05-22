@@ -43,7 +43,7 @@ export function PlayerFormDialog({ isOpen, onClose, onSubmit, defaultValues, mod
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: defaultValues?.name || "",
-      initialBuyIn: mode === 'add' ? (defaultValues?.initialBuyIn || 100) : undefined,
+      initialBuyIn: mode === 'add' ? (defaultValues?.initialBuyIn || 1000) : undefined,
     },
   });
 
@@ -85,7 +85,7 @@ export function PlayerFormDialog({ isOpen, onClose, onSubmit, defaultValues, mod
                   <FormItem>
                     <FormLabel>Initial Buy-in</FormLabel>
                     <FormControl>
-                      <Input type="number" placeholder="e.g. 100" {...field} value={field.value ?? ''} onChange={field.onChange} />
+                      <Input type="number" placeholder="e.g. 1000" {...field} value={field.value ?? ''} onChange={field.onChange} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

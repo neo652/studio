@@ -144,13 +144,16 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       player.chips -= amount;
-      // Cutting chips does not reduce totalInvested, as it's a penalty, not a cash-out.
+      player.totalInvested -= amount; // Player's investment is reduced
+      if (player.totalInvested < 0) { // Safeguard, though unlikely if chips are tied to investment
+        player.totalInvested = 0;
+      }
     }
     
     updatedPlayers[playerIndex] = player;
     setPlayers(updatedPlayers);
     addTransaction(player.id, player.name, type, amount, player.chips);
-    updateTotalPot(updatedPlayers);
+    updateTotalPot(updatedPlayers); // This will now reflect the reduced totalPot if type was 'cut'
     toast({ title: "Transaction Complete", description: `${player.name}'s chips updated by ${type === 'rebuy' ? '+' : '-'}${amount}.` });
   }, [players, addTransaction, updateTotalPot, toast]);
 

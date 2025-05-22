@@ -17,12 +17,12 @@ interface PayoutPlayer {
   id: string;
   name: string;
   totalInvested: number;
-  finalChips: number; 
+  finalChips: number;
   finalValue: number;
   netAmount: number;
 }
 
-const FIXED_CHIP_VALUE_INR = 1.0; 
+const FIXED_CHIP_VALUE_INR = 1.0;
 
 export function PayoutCalculator() {
   const { players: contextPlayers, totalPot } = usePokerLedger();
@@ -36,9 +36,9 @@ export function PayoutCalculator() {
         id: p.id,
         name: p.name,
         totalInvested: p.totalInvested,
-        finalChips: p.chips, 
-        finalValue: 0, 
-        netAmount: 0,  
+        finalChips: 0, // Initialize finalChips to 0 to be empty by default
+        finalValue: 0,
+        netAmount: 0,
       }))
     );
   }, [contextPlayers]);
@@ -47,8 +47,8 @@ export function PayoutCalculator() {
     const newChipString = event.target.value;
     let newChipCount: number;
 
-    if (newChipString === "" || newChipString === "-") { 
-      newChipCount = 0; 
+    if (newChipString === "" || newChipString === "-") {
+      newChipCount = 0;
     } else {
       newChipCount = parseInt(newChipString, 10);
       if (isNaN(newChipCount) || newChipCount < 0) {
@@ -58,13 +58,13 @@ export function PayoutCalculator() {
           variant: "destructive",
         });
         if (newChipString !== "" && (isNaN(newChipCount) || newChipCount < 0)) return;
-        if (isNaN(newChipCount)) newChipCount = 0; 
+        if (isNaN(newChipCount)) newChipCount = 0;
       }
     }
     
     setEditablePlayers(prev =>
       prev.map(p =>
-        p.id === playerId ? { ...p, finalChips: Math.max(0, newChipCount) } : p 
+        p.id === playerId ? { ...p, finalChips: Math.max(0, newChipCount) } : p
       )
     );
   };
@@ -100,7 +100,7 @@ export function PayoutCalculator() {
       const creditor = creditors[0];
       const amountToTransfer = roundTo(Math.min(debtor.amount, creditor.amount), 2);
 
-      if (amountToTransfer > 0.005) { 
+      if (amountToTransfer > 0.005) {
         settlements.push({
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
@@ -112,10 +112,10 @@ export function PayoutCalculator() {
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
       }
 
-      if (debtor.amount < 0.005) { 
+      if (debtor.amount < 0.005) {
         debtors.shift();
       }
-      if (creditor.amount < 0.005) { 
+      if (creditor.amount < 0.005) {
         creditors.shift();
       }
     }
@@ -175,7 +175,7 @@ export function PayoutCalculator() {
   
   const getChipInputValue = (player: PayoutPlayer) => {
     if (player.finalChips === 0 && activeInputPlayerId !== player.id) {
-        return ''; 
+        return '';
     }
     return player.finalChips.toString();
   };
@@ -187,8 +187,8 @@ export function PayoutCalculator() {
 
     if (inputElement && playerChipData) {
         const currentValue = inputElement.value;
-        if (currentValue === "" || currentValue === "-") { 
-            if (playerChipData.finalChips !== 0) { 
+        if (currentValue === "" || currentValue === "-") {
+            if (playerChipData.finalChips !== 0) {
                  handleFinalChipChange(playerId, { target: { value: '0' } } as ChangeEvent<HTMLInputElement>);
             }
         } else {
@@ -342,3 +342,4 @@ export function PayoutCalculator() {
     </Card>
   );
 }
+

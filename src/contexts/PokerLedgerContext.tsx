@@ -15,15 +15,14 @@ const PokerLedgerContext = createContext<PokerContextType | undefined>(undefined
 
 const generateId = () => crypto.randomUUID();
 
-// Helper function for robust parsing of potentially numeric fields from Firestore
+// Helper function for robust parsing of potentially numeric fields from Firestore or context
 const parseNumericField = (value: any): number | null => {
   if (typeof value === 'number') {
-    return value;
+    return value; // Handles 0 correctly
   }
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === '') { // Treat empty string as null
     return null;
   }
-  // Attempt to convert, ensuring that an empty string or non-numeric results in null
   const num = Number(value);
   return isNaN(num) ? null : num;
 };
@@ -45,9 +44,9 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       const storedState = localStorage.getItem(POKER_LEDGER_STORAGE_KEY);
       if (storedState) {
         const parsedState: PokerState = JSON.parse(storedState);
-        // When loading from localStorage, ensure players have the new fields
         const loadedPlayers = (parsedState.players || []).map(p => ({
-          ...p,
+          id: p.id || generateId(), // Ensure ID exists
+          name: p.name || "Unknown Player",
           chips: Number(p.chips) || 0,
           totalInvested: Number(p.totalInvested) || 0,
           finalChips: parseNumericField(p.finalChips),
@@ -122,8 +121,8 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         name,
         chips: initialBuyIn,
         totalInvested: initialBuyIn,
-        finalChips: null,
-        netValueFromFinalChips: null
+        finalChips: null, // Initialize new players with null
+        netValueFromFinalChips: null // Initialize new players with null
       };
       addTransactionEntry(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
       const newPlayersArray = [...prevPlayers, newPlayer];
@@ -181,7 +180,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
           return prevPlayers;
         }
         player.chips -= amount;
-        player.totalInvested -= amount;
+        player.totalInvested -= amount; // Reduce total invested when cutting chips
         if (player.totalInvested < 0) player.totalInvested = 0;
       }
 
@@ -205,21 +204,18 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       const updatedPlayers = [...prevPlayers];
       const player = { ...updatedPlayers[playerIndex] };
 
-      if (typeof player.finalChips === 'number') {
-        player.finalChips += adjustmentAmount;
-      } else {
-        player.chips += adjustmentAmount;
-      }
+      // Adjust live chips; PayoutCalculator handles its own finalChips
+      player.chips += adjustmentAmount;
 
       if (player.chips < 0) {
          toast({ title: "Warning", description: `${player.name}'s chips went below zero after adjustment.`, variant: "destructive" });
       }
-      // After adjusting chips, it makes sense to clear netValueFromFinalChips as it's now potentially stale.
-      // PayoutCalculator will re-calculate and update it if finalChips were changed.
+      // This function affects live chips, so clear any previously set final stats.
+      player.finalChips = null;
       player.netValueFromFinalChips = null;
 
       updatedPlayers[playerIndex] = player;
-      addTransactionEntry(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), typeof player.finalChips === 'number' ? player.finalChips : player.chips);
+      addTransactionEntry(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), player.chips);
       toast({ title: "Payout Adjusted", description: `${player.name}'s balance adjusted by ${adjustmentAmount}.` });
       return updatedPlayers;
     });
@@ -256,20 +252,30 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsSyncing(true);
     try {
-      const sanitizedPlayersToSave = playersToSave.map(p => ({
-        ...p,
-        chips: Number(p.chips) || 0,
-        totalInvested: Number(p.totalInvested) || 0,
-        finalChips: parseNumericField(p.finalChips), // Use helper for consistent null/number
-        netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips), // Use helper
-      }));
+      // Explicitly map all fields to ensure finalChips and netValueFromFinalChips are included
+      const sanitizedPlayersToSave = playersToSave.map(p => {
+        const playerForDb: Player = {
+          id: p.id,
+          name: p.name,
+          chips: Number(p.chips) || 0,
+          totalInvested: Number(p.totalInvested) || 0,
+          finalChips: parseNumericField(p.finalChips),
+          netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
+        };
+        return playerForDb;
+      });
 
       const gameDataToSave: FirestoreGameData = {
         players: sanitizedPlayersToSave,
         transactions: transactionsToSave,
         totalPot: currentTotalPot,
-        savedAt: serverTimestamp(), // For new saves
+        savedAt: serverTimestamp(), // For new saves, this will be set by Firestore
       };
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log("Context: Players array PASSED to saveGameToFirestore:", JSON.parse(JSON.stringify(playersToSave)));
+        console.log("Context: Sanitized players for Firestore (gameDataToSave.players):", JSON.parse(JSON.stringify(sanitizedPlayersToSave)));
+      }
 
       let gameRefId: string;
       const now = new Date();
@@ -277,15 +283,17 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       if (currentFirestoreGameId) {
         gameRefId = currentFirestoreGameId;
         const gameRef = doc(db, FIRESTORE_GAMES_COLLECTION_PATH, gameRefId);
-        // Add lastUpdatedAt for existing game updates
-        await setDoc(gameRef, { ...gameDataToSave, savedAt: currentGameSavedAt ? Timestamp.fromDate(new Date(currentGameSavedAt)) : serverTimestamp(), lastUpdatedAt: serverTimestamp() }, { merge: true });
+        // When updating, ensure savedAt preserves its original value unless it's new.
+        // Use serverTimestamp for lastUpdatedAt.
+        const existingSavedAt = currentGameSavedAt ? Timestamp.fromDate(new Date(currentGameSavedAt)) : serverTimestamp();
+        await setDoc(gameRef, { ...gameDataToSave, savedAt: existingSavedAt, lastUpdatedAt: serverTimestamp() }, { merge: true });
         toast({ title: "Sync Success", description: `Game updated in Cloud (ID: ${gameRefId.substring(0,6)}...).` });
-        setCurrentGameSavedAt(now.toISOString()); // Update local "savedAt" to now
+        // setCurrentGameSavedAt is already reflecting the original save/load time, lastUpdatedAt handles modification time
       } else {
         const newDocRef = await addDoc(collection(db, FIRESTORE_GAMES_COLLECTION_PATH), gameDataToSave);
         gameRefId = newDocRef.id;
         setCurrentFirestoreGameId(gameRefId);
-        setCurrentGameSavedAt(now.toISOString());
+        setCurrentGameSavedAt(now.toISOString()); // Set for the first save
         toast({ title: "Sync Success", description: `Game saved to Cloud with ID: ${gameRefId.substring(0,6)}...).` });
       }
       return gameRefId;
@@ -312,14 +320,13 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data() as FirestoreGameData;
         let savedAtStr = "Unknown date";
-        // Prioritize lastUpdatedAt, then savedAt
-        const timestampToConvert = data.lastUpdatedAt || data.savedAt;
+        const timestampToConvert = data.lastUpdatedAt || data.savedAt; // Prefer lastUpdatedAt for display if available
         if (timestampToConvert instanceof Timestamp) {
           savedAtStr = timestampToConvert.toDate().toLocaleString();
-        } else if (timestampToConvert && typeof timestampToConvert.toDate === 'function') { // Handle older format if any
-          savedAtStr = timestampToConvert.toDate().toLocaleString();
+        } else if (timestampToConvert && typeof (timestampToConvert as any).toDate === 'function') {
+          savedAtStr = (timestampToConvert as any).toDate().toLocaleString();
         } else if (timestampToConvert) {
-           try { savedAtStr = new Date(timestampToConvert as string | number).toLocaleString(); } catch (e) {/* ignore */}
+           try { savedAtStr = new Date(timestampToConvert as any).toLocaleString(); } catch (e) {/* ignore */}
         }
 
         games.push({
@@ -353,7 +360,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       if (docSnap.exists()) {
         const gameData = docSnap.data() as FirestoreGameData;
         const loadedPlayers = (gameData.players || []).map(p => ({
-          id: p.id || `unknown-${Math.random()}`,
+          id: p.id || generateId(), // Ensure ID exists
           name: p.name || "Unknown Player",
           chips: Number(p.chips) || 0,
           totalInvested: Number(p.totalInvested) || 0,
@@ -367,13 +374,16 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         setCurrentFirestoreGameId(gameId);
 
         let loadedGameSavedAtStr = new Date().toISOString();
-        const timestampToConvert = gameData.lastUpdatedAt || gameData.savedAt;
-        if (timestampToConvert instanceof Timestamp) {
-            loadedGameSavedAtStr = timestampToConvert.toDate().toISOString();
-        } else if (timestampToConvert && typeof (timestampToConvert as any).toDate === 'function') { // For older Firebase SDK Timestamps
-            loadedGameSavedAtStr = (timestampToConvert as any).toDate().toISOString();
-        } else if (timestampToConvert) {
-            try { loadedGameSavedAtStr = new Date(timestampToConvert as any).toISOString(); } catch (e) { /* use default */ }
+        // When loading, `savedAt` refers to the original save time of the document from Firestore.
+        // `lastUpdatedAt` would be when it was last modified.
+        // For `currentGameSavedAt` in context, use the `savedAt` from Firestore as this represents the "version" loaded.
+        const firestoreSavedAt = gameData.savedAt;
+        if (firestoreSavedAt instanceof Timestamp) {
+            loadedGameSavedAtStr = firestoreSavedAt.toDate().toISOString();
+        } else if (firestoreSavedAt && typeof (firestoreSavedAt as any).toDate === 'function') {
+            loadedGameSavedAtStr = (firestoreSavedAt as any).toDate().toISOString();
+        } else if (firestoreSavedAt) {
+            try { loadedGameSavedAtStr = new Date(firestoreSavedAt as any).toISOString(); } catch (e) { /* use default */ }
         }
         setCurrentGameSavedAt(loadedGameSavedAtStr);
 
@@ -411,5 +421,4 @@ export const usePokerLedger = (): PokerContextType => {
   }
   return context;
 };
-
     

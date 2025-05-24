@@ -8,12 +8,26 @@ import { useToast } from '@/hooks/use-toast';
 import { getDb } from '@/lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, addDoc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 
-const POKER_LEDGER_STORAGE_KEY = 'pokerLedgerState_v3'; // Increment version for new player structure
+const POKER_LEDGER_STORAGE_KEY = 'pokerLedgerState_v3';
 const FIRESTORE_GAMES_COLLECTION_PATH = "pokerGames";
 
 const PokerLedgerContext = createContext<PokerContextType | undefined>(undefined);
 
 const generateId = () => crypto.randomUUID();
+
+// Helper function for robust parsing of potentially numeric fields from Firestore
+const parseNumericField = (value: any): number | null => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return null;
+  }
+  // Attempt to convert, ensuring that an empty string or non-numeric results in null
+  const num = Number(value);
+  return isNaN(num) ? null : num;
+};
+
 
 export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -31,7 +45,15 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       const storedState = localStorage.getItem(POKER_LEDGER_STORAGE_KEY);
       if (storedState) {
         const parsedState: PokerState = JSON.parse(storedState);
-        setPlayers(parsedState.players || []);
+        // When loading from localStorage, ensure players have the new fields
+        const loadedPlayers = (parsedState.players || []).map(p => ({
+          ...p,
+          chips: Number(p.chips) || 0,
+          totalInvested: Number(p.totalInvested) || 0,
+          finalChips: parseNumericField(p.finalChips),
+          netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
+        }));
+        setPlayers(loadedPlayers);
         setTransactions(parsedState.transactions || []);
         setTotalPot(parsedState.totalPot || 0);
         setCurrentFirestoreGameId(parsedState.currentFirestoreGameId || null);
@@ -47,12 +69,12 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!isLoading) {
       try {
-        const stateToStore: PokerState = { 
-            players, 
-            transactions, 
-            totalPot, 
+        const stateToStore: PokerState = {
+            players,
+            transactions,
+            totalPot,
             currentFirestoreGameId,
-            currentGameSavedAt 
+            currentGameSavedAt
         };
         localStorage.setItem(POKER_LEDGER_STORAGE_KEY, JSON.stringify(stateToStore));
       } catch (error) {
@@ -80,7 +102,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       return [newTransaction, ...prevTransactions];
     });
   }, []);
-  
+
   const addPlayer = useCallback((name: string, initialBuyIn: number) => {
     if (!name.trim()) {
       toast({ title: "Error", description: "Player name cannot be empty.", variant: "destructive" });
@@ -95,13 +117,13 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "Error", description: `Player "${name}" already exists.`, variant: "destructive" });
         return prevPlayers;
       }
-      const newPlayer: Player = { 
-        id: generateId(), 
-        name, 
-        chips: initialBuyIn, 
+      const newPlayer: Player = {
+        id: generateId(),
+        name,
+        chips: initialBuyIn,
         totalInvested: initialBuyIn,
-        finalChips: null, // Initialize new fields
-        netValueFromFinalChips: null // Initialize new fields
+        finalChips: null,
+        netValueFromFinalChips: null
       };
       addTransactionEntry(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
       const newPlayersArray = [...prevPlayers, newPlayer];
@@ -125,10 +147,10 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     setPlayers(prevPlayers => {
       const playerToRemove = prevPlayers.find(p => p.id === playerId);
       if (!playerToRemove) return prevPlayers;
-      
+
       const updatedPlayers = prevPlayers.filter(p => p.id !== playerId);
       updateTotalPot(updatedPlayers);
-      
+
       toast({ title: "Player Removed", description: `${playerToRemove.name} has been removed.` });
       return updatedPlayers;
     });
@@ -146,7 +168,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         toast({ title: "Error", description: "Player not found.", variant: "destructive" });
         return prevPlayers;
       }
-      
+
       const updatedPlayers = [...prevPlayers];
       const player = { ...updatedPlayers[playerIndex] };
 
@@ -159,10 +181,10 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
           return prevPlayers;
         }
         player.chips -= amount;
-        player.totalInvested -= amount; 
+        player.totalInvested -= amount;
         if (player.totalInvested < 0) player.totalInvested = 0;
       }
-      
+
       // Clear final stats if live chips change, as they might become outdated
       player.finalChips = null;
       player.netValueFromFinalChips = null;
@@ -175,20 +197,16 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [addTransactionEntry, updateTotalPot, toast]);
 
-  // 'adjustPayout' might need re-evaluation or to primarily work on 'finalChips' if that's the source of truth for payout
   const adjustPayout = useCallback((playerId: string, adjustmentAmount: number) => {
     setPlayers(prevPlayers => {
       const playerIndex = prevPlayers.findIndex(p => p.id === playerId);
       if (playerIndex === -1) return prevPlayers;
-      
+
       const updatedPlayers = [...prevPlayers];
       const player = { ...updatedPlayers[playerIndex] };
-      
-      // If finalChips are set, adjust them. Otherwise, adjust live chips.
+
       if (typeof player.finalChips === 'number') {
         player.finalChips += adjustmentAmount;
-        // Re-calculate netValueFromFinalChips if necessary (though PayoutCalculator should do this)
-        // For simplicity, PayoutCalculator will be responsible for updating netValueFromFinalChips via updatePlayerFinalStats
       } else {
         player.chips += adjustmentAmount;
       }
@@ -196,8 +214,12 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       if (player.chips < 0) {
          toast({ title: "Warning", description: `${player.name}'s chips went below zero after adjustment.`, variant: "destructive" });
       }
+      // After adjusting chips, it makes sense to clear netValueFromFinalChips as it's now potentially stale.
+      // PayoutCalculator will re-calculate and update it if finalChips were changed.
+      player.netValueFromFinalChips = null;
+
       updatedPlayers[playerIndex] = player;
-      addTransactionEntry(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), player.chips);
+      addTransactionEntry(player.id, player.name, 'payout_adjustment', Math.abs(adjustmentAmount), typeof player.finalChips === 'number' ? player.finalChips : player.chips);
       toast({ title: "Payout Adjusted", description: `${player.name}'s balance adjusted by ${adjustmentAmount}.` });
       return updatedPlayers;
     });
@@ -234,18 +256,19 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     }
     setIsSyncing(true);
     try {
-      // Ensure all player objects have the new fields, defaulting to null if not present
       const sanitizedPlayersToSave = playersToSave.map(p => ({
         ...p,
-        finalChips: p.finalChips === undefined ? null : p.finalChips,
-        netValueFromFinalChips: p.netValueFromFinalChips === undefined ? null : p.netValueFromFinalChips,
+        chips: Number(p.chips) || 0,
+        totalInvested: Number(p.totalInvested) || 0,
+        finalChips: parseNumericField(p.finalChips), // Use helper for consistent null/number
+        netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips), // Use helper
       }));
 
       const gameDataToSave: FirestoreGameData = {
         players: sanitizedPlayersToSave,
         transactions: transactionsToSave,
         totalPot: currentTotalPot,
-        savedAt: serverTimestamp(),
+        savedAt: serverTimestamp(), // For new saves
       };
 
       let gameRefId: string;
@@ -254,9 +277,10 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       if (currentFirestoreGameId) {
         gameRefId = currentFirestoreGameId;
         const gameRef = doc(db, FIRESTORE_GAMES_COLLECTION_PATH, gameRefId);
-        await setDoc(gameRef, { ...gameDataToSave, lastUpdatedAt: serverTimestamp() }, { merge: true });
+        // Add lastUpdatedAt for existing game updates
+        await setDoc(gameRef, { ...gameDataToSave, savedAt: currentGameSavedAt ? Timestamp.fromDate(new Date(currentGameSavedAt)) : serverTimestamp(), lastUpdatedAt: serverTimestamp() }, { merge: true });
         toast({ title: "Sync Success", description: `Game updated in Cloud (ID: ${gameRefId.substring(0,6)}...).` });
-        setCurrentGameSavedAt(now.toISOString());
+        setCurrentGameSavedAt(now.toISOString()); // Update local "savedAt" to now
       } else {
         const newDocRef = await addDoc(collection(db, FIRESTORE_GAMES_COLLECTION_PATH), gameDataToSave);
         gameRefId = newDocRef.id;
@@ -288,8 +312,11 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data() as FirestoreGameData;
         let savedAtStr = "Unknown date";
+        // Prioritize lastUpdatedAt, then savedAt
         const timestampToConvert = data.lastUpdatedAt || data.savedAt;
-        if (timestampToConvert && typeof timestampToConvert.toDate === 'function') {
+        if (timestampToConvert instanceof Timestamp) {
+          savedAtStr = timestampToConvert.toDate().toLocaleString();
+        } else if (timestampToConvert && typeof timestampToConvert.toDate === 'function') { // Handle older format if any
           savedAtStr = timestampToConvert.toDate().toLocaleString();
         } else if (timestampToConvert) {
            try { savedAtStr = new Date(timestampToConvert as string | number).toLocaleString(); } catch (e) {/* ignore */}
@@ -325,11 +352,13 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
 
       if (docSnap.exists()) {
         const gameData = docSnap.data() as FirestoreGameData;
-        // Ensure players array has new fields, defaulting to null if missing from older saves
         const loadedPlayers = (gameData.players || []).map(p => ({
-          ...p,
-          finalChips: p.finalChips === undefined ? null : p.finalChips,
-          netValueFromFinalChips: p.netValueFromFinalChips === undefined ? null : p.netValueFromFinalChips,
+          id: p.id || `unknown-${Math.random()}`,
+          name: p.name || "Unknown Player",
+          chips: Number(p.chips) || 0,
+          totalInvested: Number(p.totalInvested) || 0,
+          finalChips: parseNumericField(p.finalChips),
+          netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
         }));
 
         setPlayers(loadedPlayers);
@@ -337,10 +366,12 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         setTotalPot(gameData.totalPot || 0);
         setCurrentFirestoreGameId(gameId);
 
-        let loadedGameSavedAtStr = new Date().toISOString(); 
+        let loadedGameSavedAtStr = new Date().toISOString();
         const timestampToConvert = gameData.lastUpdatedAt || gameData.savedAt;
         if (timestampToConvert instanceof Timestamp) {
             loadedGameSavedAtStr = timestampToConvert.toDate().toISOString();
+        } else if (timestampToConvert && typeof (timestampToConvert as any).toDate === 'function') { // For older Firebase SDK Timestamps
+            loadedGameSavedAtStr = (timestampToConvert as any).toDate().toISOString();
         } else if (timestampToConvert) {
             try { loadedGameSavedAtStr = new Date(timestampToConvert as any).toISOString(); } catch (e) { /* use default */ }
         }
@@ -363,8 +394,8 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <PokerLedgerContext.Provider value={{ 
-      players, transactions, totalPot, addPlayer, editPlayerName, removePlayer, performTransaction, 
+    <PokerLedgerContext.Provider value={{
+      players, transactions, totalPot, addPlayer, editPlayerName, removePlayer, performTransaction,
       adjustPayout, resetGame, isLoading, isSyncing, saveGameToFirestore, fetchSavedGames, loadGameData,
       currentFirestoreGameId, currentGameSavedAt, updatePlayerFinalStats
     }}>
@@ -380,3 +411,5 @@ export const usePokerLedger = (): PokerContextType => {
   }
   return context;
 };
+
+    

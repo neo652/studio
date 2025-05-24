@@ -3,7 +3,7 @@
 
 import * as React from "react";
 import { getDb } from "@/lib/firebase";
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
+import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firestore";
 import type { SavedGameDocument, PlayerInGameStats, PlayerLifetimeStats, Player as PlayerType } from "@/types/poker";
 import { GameStatsTable } from "./GameStatsTable";
 import { LifetimeStatsTable } from "./LifetimeStatsTable";
@@ -12,6 +12,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Loader2, BarChart3, Users } from "lucide-react";
 
 const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calculations
+
+// Helper function for robust parsing of potentially numeric fields
+const parseNumericField = (value: any): number | null => {
+  if (typeof value === 'number') {
+    return value;
+  }
+  if (value === null || value === undefined) {
+    return null;
+  }
+  const num = Number(value);
+  return isNaN(num) ? null : num;
+};
+
 
 export function DashboardClient() {
   const [games, setGames] = React.useState<SavedGameDocument[]>([]);
@@ -39,20 +52,24 @@ export function DashboardClient() {
         const fetchedGames: SavedGameDocument[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          let savedAtDate = new Date(); 
-          if (data.savedAt && typeof data.savedAt.toDate === 'function') {
-            savedAtDate = data.savedAt.toDate();
-          } else if (data.savedAt && typeof data.savedAt === 'string') {
-             try { savedAtDate = new Date(data.savedAt); } catch (e) {/* use default */}
-          } else if (data.savedAt && data.savedAt.seconds) { 
-             try { savedAtDate = new Date(data.savedAt.seconds * 1000); } catch (e) {/* use default */}
+          let savedAtDate = new Date();
+          const firestoreTimestamp = data.lastUpdatedAt || data.savedAt;
+
+          if (firestoreTimestamp instanceof Timestamp) {
+            savedAtDate = firestoreTimestamp.toDate();
+          } else if (typeof firestoreTimestamp === 'string' || typeof firestoreTimestamp === 'number') {
+             try { savedAtDate = new Date(firestoreTimestamp); } catch (e) {/* use default */}
+          } else if (firestoreTimestamp && firestoreTimestamp.seconds) {
+             try { savedAtDate = new Date(firestoreTimestamp.seconds * 1000); } catch (e) {/* use default */}
           }
-          
-          // Ensure players array has new fields, defaulting to null if missing
-          const loadedPlayers = (data.players || []).map((p: PlayerType) => ({
-            ...p,
-            finalChips: p.finalChips === undefined ? null : p.finalChips,
-            netValueFromFinalChips: p.netValueFromFinalChips === undefined ? null : p.netValueFromFinalChips,
+
+          const loadedPlayers = (data.players || []).map((p: any): PlayerType => ({ // Use any for raw p, then cast to PlayerType
+            id: p.id || `unknown-${Math.random()}`,
+            name: p.name || "Unknown Player",
+            chips: Number(p.chips) || 0,
+            totalInvested: Number(p.totalInvested) || 0,
+            finalChips: parseNumericField(p.finalChips),
+            netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
           }));
 
           fetchedGames.push({
@@ -61,11 +78,12 @@ export function DashboardClient() {
             transactions: data.transactions || [],
             totalPot: data.totalPot || 0,
             savedAt: savedAtDate.toISOString(),
+            lastUpdatedAt: data.lastUpdatedAt ? (data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt.toDate().toISOString() : new Date(data.lastUpdatedAt as any).toISOString()) : undefined,
           });
         });
         setGames(fetchedGames);
         if (fetchedGames.length > 0) {
-          setSelectedGameId(fetchedGames[0].id); 
+          setSelectedGameId(fetchedGames[0].id);
         }
       } catch (e) {
         console.error("Error fetching games for dashboard:", e);
@@ -90,25 +108,25 @@ export function DashboardClient() {
         console.log(`Dashboard: Calculating stats for game ID: ${selectedGame.id}. Raw players data from Firestore:`, JSON.parse(JSON.stringify(selectedGame.players)));
       }
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
-        const pInvested = Number(player.totalInvested) || 0;
-        let netVal;
+        let netVal: number;
+        const pInvested = player.totalInvested; // Already parsed to number
 
         if (typeof player.netValueFromFinalChips === 'number') {
           netVal = player.netValueFromFinalChips;
            if (process.env.NODE_ENV === 'development') {
-             console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using netValueFromFinalChips: ${netVal}`);
+             console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using netValueFromFinalChips (type: ${typeof player.netValueFromFinalChips}): ${netVal}`);
            }
         } else if (typeof player.finalChips === 'number') {
           const pFinalChips = player.finalChips;
           netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pInvested;
            if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using finalChips: ${pFinalChips} (parsed), Invested: ${pInvested}, Calculated Net: ${netVal}`);
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using finalChips (type: ${typeof player.finalChips}): ${pFinalChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
           }
         } else {
-          const pLiveChips = Number(player.chips) || 0;
+          const pLiveChips = player.chips; // Already parsed to number
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
           if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using live chips: ${player.chips} (parsed as ${pLiveChips}), Invested: ${pInvested}, Calculated Net: ${netVal}`);
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using live chips (type: ${typeof player.chips}): ${pLiveChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
           }
         }
         
@@ -136,7 +154,7 @@ export function DashboardClient() {
         game.players.forEach(player => {
           if (!player || typeof player.name !== 'string') {
             console.warn("Skipping malformed player object in lifetime stats:", player);
-            return; 
+            return;
           }
 
           if (!lifetimeMap[player.name]) {
@@ -147,7 +165,7 @@ export function DashboardClient() {
             };
           }
           const current = lifetimeMap[player.name];
-          const pInvested = Number(player.totalInvested) || 0;
+          const pInvested = player.totalInvested;
           let gameNetVal;
 
           if (typeof player.netValueFromFinalChips === 'number') {
@@ -155,7 +173,7 @@ export function DashboardClient() {
           } else if (typeof player.finalChips === 'number') {
             gameNetVal = (player.finalChips * DASHBOARD_CHIP_VALUE) - pInvested;
           } else {
-            const pLiveChips = Number(player.chips) || 0;
+            const pLiveChips = player.chips;
             gameNetVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
           }
           
@@ -249,3 +267,5 @@ export function DashboardClient() {
     </div>
   );
 }
+
+    

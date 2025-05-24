@@ -80,22 +80,22 @@ export function DashboardClient() {
     const selectedGame = games.find(g => g.id === selectedGameId);
     if (selectedGame && Array.isArray(selectedGame.players)) {
       if (process.env.NODE_ENV === 'development') {
-        console.log(`Calculating stats for game ID: ${selectedGame.id}`);
+        console.log(`Dashboard: Calculating stats for game ID: ${selectedGame.id}. Raw players data from Firestore:`, JSON.parse(JSON.stringify(selectedGame.players)));
       }
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
         const pChips = Number(player.chips) || 0;
         const pInvested = Number(player.totalInvested) || 0;
-
-        // Diagnostic log for Ankur in the specific game
-        if (player.name === "Ankur" && selectedGame.id === "S0yDJsx0tSKbwIfGomC0" && process.env.NODE_ENV === 'development') {
-          console.log(`Dashboard Stats for Ankur (Game S0yDJsx0tSKbwIfGomC0): Chips from Firestore: ${player.chips} (parsed as ${pChips}), Invested from Firestore: ${player.totalInvested} (parsed as ${pInvested}), DASHBOARD_CHIP_VALUE: ${DASHBOARD_CHIP_VALUE}`);
+        const netValue = (pChips * DASHBOARD_CHIP_VALUE) - pInvested;
+        
+        if (process.env.NODE_ENV === 'development') {
+           console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Chips from Firestore: ${player.chips} (parsed as ${pChips}), Invested from Firestore: ${player.totalInvested} (parsed as ${pInvested}), DASHBOARD_CHIP_VALUE: ${DASHBOARD_CHIP_VALUE}, Calculated Net: ${netValue}`);
         }
         
         return {
           playerName: player.name,
-          totalInvested: pInvested, // Kept for potential future use, though table is simplified
-          finalChips: pChips,       // Kept for potential future use, though table is simplified
-          netValue: (pChips * DASHBOARD_CHIP_VALUE) - pInvested,
+          totalInvested: pInvested,
+          finalChips: pChips,       
+          netValue: netValue,
         };
       });
       setPlayerGameStats(stats.sort((a,b) => b.netValue - a.netValue));
@@ -226,3 +226,4 @@ export function DashboardClient() {
     </div>
   );
 }
+

@@ -17,49 +17,52 @@ interface PayoutPlayer {
   id: string;
   name: string;
   totalInvested: number;
-  finalChips: number; 
-  finalValue: number; 
-  netAmount: number; 
+  finalChips: number;
+  finalValue: number;
+  netAmount: number;
 }
 
-const FIXED_CHIP_VALUE_INR = 1; 
-const CHIP_INPUT_REGEX = /^(|0|[1-9]\d*)$/;
+const FIXED_CHIP_VALUE_INR = 1;
+const CHIP_INPUT_REGEX = /^(|0|[1-9]\d*)$/; // Allows empty string, 0, or positive integers
 
 export function PayoutCalculator() {
   const { players: contextPlayers, totalPot, updatePlayerFinalStats } = usePokerLedger();
   const { toast } = useToast();
-  
+
   const [editablePlayers, setEditablePlayers] = useState<PayoutPlayer[]>([]);
   const [inputStrings, setInputStrings] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const newEditablePlayers = contextPlayers.map(p => {
-      const initialFinalChips = typeof p.finalChips === 'number' ? p.finalChips : 0;
+    const newEditablePlayers = contextPlayers.map(playerFromContext => {
+      // Correctly use playerFromContext.finalChips
+      const currentFinalChipsValue = typeof playerFromContext.finalChips === 'number' ? playerFromContext.finalChips : 0;
       return {
-        id: p.id,
-        name: p.name,
-        totalInvested: p.totalInvested,
-        finalChips: initialFinalChips, 
-        finalValue: 0, 
-        netAmount: 0,
+        id: playerFromContext.id,
+        name: playerFromContext.name,
+        totalInvested: playerFromContext.totalInvested,
+        finalChips: currentFinalChipsValue,
+        finalValue: 0, // Will be recalculated by derivedPayoutData
+        netAmount: 0,  // Will be recalculated by derivedPayoutData
       };
     });
     setEditablePlayers(newEditablePlayers);
 
-    const newInputStrings: Record<string, string> = {};
-    newEditablePlayers.forEach(p => {
-      // If initialFinalChips is 0 and was not explicitly set to "0", input string should be empty.
-      // It checks if p.finalChips was explicitly set in context before defaulting to ""
-      const contextPlayer = contextPlayers.find(cp => cp.id === p.id);
-      const hasExplicitFinalChipsInContext = contextPlayer && typeof contextPlayer.finalChips === 'number';
+    const newInputStringsInit: Record<string, string> = {};
+    newEditablePlayers.forEach(editablePlayer => {
+      // Find the original player from context to check if finalChips was *explicitly* set
+      const originalContextPlayer = contextPlayers.find(cp => cp.id === editablePlayer.id);
+      const hasExplicitFinalChipsInContext = originalContextPlayer && typeof originalContextPlayer.finalChips === 'number';
 
-      if (initialFinalChips === 0 && !hasExplicitFinalChipsInContext) {
-        newInputStrings[p.id] = "";
+      // editablePlayer.finalChips is the numeric value (could be 0 if not explicitly set, or the actual number if set)
+      if (editablePlayer.finalChips === 0 && !hasExplicitFinalChipsInContext) {
+        // If numeric value is 0 AND it wasn't explicitly set in context, input string should be empty
+        newInputStringsInit[editablePlayer.id] = "";
       } else {
-        newInputStrings[p.id] = initialFinalChips.toString();
+        // Otherwise, use the string representation of the numeric value
+        newInputStringsInit[editablePlayer.id] = editablePlayer.finalChips.toString();
       }
     });
-    setInputStrings(newInputStrings);
+    setInputStrings(newInputStringsInit);
 
   }, [contextPlayers]);
 
@@ -74,14 +77,14 @@ export function PayoutCalculator() {
           ep.id === playerId ? { ...ep, finalChips: newNumericValue } : ep
         )
       );
-    } else if (currentDisplayValue === "" || currentDisplayValue === "-") {
+    } else if (currentDisplayValue === "") { // Allow empty string to reset to 0 immediately for calculation
        setEditablePlayers(prev =>
         prev.map(ep =>
           ep.id === playerId ? { ...ep, finalChips: 0 } : ep
         )
       );
     }
-    // If invalid (e.g. "12a"), numeric finalChips remains unchanged, user sees invalid input
+    // If invalid (e.g. "12a"), numeric finalChips remains unchanged based on last valid input, user sees invalid input
   };
 
   const handleFinalChipInputBlur = (playerId: string) => {
@@ -89,17 +92,18 @@ export function PayoutCalculator() {
     let finalNumericValueForContext: number;
     let finalStringForDisplay: string;
 
-    const playerForUpdate = editablePlayers.find(p => p.id === playerId); 
+    const playerForUpdate = editablePlayers.find(p => p.id === playerId);
     const playerName = playerForUpdate?.name || 'selected player';
 
-    if (CHIP_INPUT_REGEX.test(currentDisplayValue) && currentDisplayValue !== "") { 
-      finalNumericValueForContext = parseInt(currentDisplayValue, 10); 
-      finalStringForDisplay = finalNumericValueForContext.toString(); 
-    } else { 
-      finalNumericValueForContext = 0; 
-      finalStringForDisplay = ""; 
+    if (CHIP_INPUT_REGEX.test(currentDisplayValue) && currentDisplayValue !== "") {
+      finalNumericValueForContext = parseInt(currentDisplayValue, 10);
+      finalStringForDisplay = finalNumericValueForContext.toString(); // Canonical string form e.g. "007" -> "7"
+    } else {
+      // This case handles empty string or invalid input on blur
+      finalNumericValueForContext = 0;
+      finalStringForDisplay = ""; // Visually empty for 0 if input was empty or invalid
 
-      if (currentDisplayValue !== "" && currentDisplayValue !== "-") { 
+      if (currentDisplayValue !== "" && currentDisplayValue !== "-") { // "-" is not allowed by regex but good to be safe
         toast({
           title: "Invalid Chip Count",
           description: `Input for ${playerName} was invalid. Final chips set to 0. Input cleared.`,
@@ -107,8 +111,9 @@ export function PayoutCalculator() {
         });
       }
     }
-    
+
     let calculatedNetAmountForContext = 0;
+    // Update editablePlayers to reflect the blur logic (mainly for netAmount calculation)
     setEditablePlayers(prevPlayers => {
       return prevPlayers.map(p => {
         if (p.id === playerId) {
@@ -119,8 +124,10 @@ export function PayoutCalculator() {
         return p;
       });
     });
+    // Update the input string to its canonical form (e.g., "" for 0, or the number string)
     setInputStrings(prev => ({ ...prev, [playerId]: finalStringForDisplay }));
-    
+
+    // Persist to context
     updatePlayerFinalStats(playerId, finalNumericValueForContext, calculatedNetAmountForContext);
   };
 
@@ -141,7 +148,7 @@ export function PayoutCalculator() {
         finalValue,
         netAmount,
       };
-    }).sort((a, b) => { 
+    }).sort((a, b) => {
         const indexA = contextPlayers.findIndex(p => p.id === a.id);
         const indexB = contextPlayers.findIndex(p => p.id === b.id);
         return indexA - indexB;
@@ -168,16 +175,16 @@ export function PayoutCalculator() {
       const creditor = tempCreditors[0];
       const amountToTransfer = roundTo(Math.min(debtor.amount, creditor.amount), 2);
 
-      if (amountToTransfer > 0.005) { 
+      if (amountToTransfer > 0.005) {
         settlements.push({
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
           toPlayerName: creditor.name,
-          amount: roundTo(amountToTransfer / 2, 2), 
+          amount: roundTo(amountToTransfer / 2, 2),
         });
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
-      } else { 
+      } else {
         break;
       }
 
@@ -194,7 +201,7 @@ export function PayoutCalculator() {
       calculatedPlayers: playersWithCalculations,
       settlements,
     };
-  }, [editablePlayers, totalPot, contextPlayers]); 
+  }, [editablePlayers, totalPot, contextPlayers]);
 
   const getReconciliationMessages = () => {
     const {
@@ -210,23 +217,23 @@ export function PayoutCalculator() {
     }
 
     let discrepancyChipMessage = "";
-    if (totalActualChipsInPlay > 0 || totalPot > 0) {
+    if (totalActualChipsInPlay > 0 || totalPot > 0) { // Only show chip discrepancy if there's a pot or chips entered
         if (chipDiscrepancy === 0 && totalActualChipsInPlay === expectedTotalChips) {
             discrepancyChipMessage = "Chip counts reconcile with expected total chips.";
         } else if (chipDiscrepancy > 0) {
             discrepancyChipMessage = `Chip Surplus: ${chipDiscrepancy.toLocaleString('en-IN')} more chips entered than expected.`;
-        } else { 
+        } else {
             discrepancyChipMessage = `Chip Shortage: ${Math.abs(chipDiscrepancy).toLocaleString('en-IN')} fewer chips entered than expected.`;
         }
     }
 
     let discrepancyMonetaryMessage = "";
-     if (totalActualChipsInPlay > 0 || totalPot > 0) {
+     if (totalActualChipsInPlay > 0 || totalPot > 0) { // Only show monetary discrepancy if relevant
         if (monetaryDiscrepancy === 0 && valueOfActualChips === totalPot) {
             discrepancyMonetaryMessage = "Value of actual chips reconciles with total pot.";
         } else if (monetaryDiscrepancy > 0) {
             discrepancyMonetaryMessage = `Value Surplus: ${monetaryDiscrepancy.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} more in chip value than pot.`;
-        } else { 
+        } else {
             discrepancyMonetaryMessage = `Value Shortage: ${Math.abs(monetaryDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} less in chip value than pot.`;
         }
     }
@@ -243,7 +250,7 @@ export function PayoutCalculator() {
               </>
             )}
             {totalActualChipsInPlay === 0 && totalPot === 0 && <p>Enter final chip counts. Total pot is ₹0.00.</p>}
-            {totalActualChipsInPlay > 0 && <p className="mt-1">Settlements below are based on the fixed chip value. (Displayed amounts are halved for payment convenience)</p>}
+            {totalActualChipsInPlay > 0 && derivedPayoutData.settlements.length > 0 && <p className="mt-1">Settlements below are based on the fixed chip value. (Displayed amounts are halved for payment convenience)</p>}
         </div>
     );
   };
@@ -289,7 +296,7 @@ export function PayoutCalculator() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Player</TableHead>
-                    <TableHead className="text-right w-28 sm:w-36">Final Chips</TableHead>
+                    <TableHead className="text-right w-28 sm:w-32">Final Chips</TableHead>
                     <TableHead className="text-right hidden sm:table-cell">Invested (₹)</TableHead>
                     <TableHead className="text-right hidden md:table-cell">Final Value (₹)</TableHead>
                     <TableHead className="text-right">Net (₹)</TableHead>
@@ -307,7 +314,7 @@ export function PayoutCalculator() {
                           onChange={(e) => handleChipDisplayChange(player.id, e.target.value)}
                           id={`finalChips-${player.id}`}
                           className="h-8 text-right w-full"
-                          placeholder="" 
+                          placeholder=""
                         />
                       </TableCell>
                       <TableCell className="text-right hidden sm:table-cell py-2">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>

@@ -4,7 +4,7 @@
 import * as React from "react";
 import { getDb } from "@/lib/firebase";
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import type { SavedGameDocument, PlayerInGameStats, PlayerLifetimeStats } from "@/types/poker";
+import type { SavedGameDocument, PlayerInGameStats, PlayerLifetimeStats, Player as PlayerType } from "@/types/poker";
 import { GameStatsTable } from "./GameStatsTable";
 import { LifetimeStatsTable } from "./LifetimeStatsTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -39,26 +39,33 @@ export function DashboardClient() {
         const fetchedGames: SavedGameDocument[] = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          let savedAtDate = new Date(); // Default if timestamp is problematic
+          let savedAtDate = new Date(); 
           if (data.savedAt && typeof data.savedAt.toDate === 'function') {
             savedAtDate = data.savedAt.toDate();
           } else if (data.savedAt && typeof data.savedAt === 'string') {
              try { savedAtDate = new Date(data.savedAt); } catch (e) {/* use default */}
-          } else if (data.savedAt && data.savedAt.seconds) { // Handle plain object timestamp
+          } else if (data.savedAt && data.savedAt.seconds) { 
              try { savedAtDate = new Date(data.savedAt.seconds * 1000); } catch (e) {/* use default */}
           }
+          
+          // Ensure players array has new fields, defaulting to null if missing
+          const loadedPlayers = (data.players || []).map((p: PlayerType) => ({
+            ...p,
+            finalChips: p.finalChips === undefined ? null : p.finalChips,
+            netValueFromFinalChips: p.netValueFromFinalChips === undefined ? null : p.netValueFromFinalChips,
+          }));
 
           fetchedGames.push({
             id: doc.id,
-            players: data.players || [],
+            players: loadedPlayers,
             transactions: data.transactions || [],
             totalPot: data.totalPot || 0,
-            savedAt: savedAtDate.toISOString(), // Store as ISO string
+            savedAt: savedAtDate.toISOString(),
           });
         });
         setGames(fetchedGames);
         if (fetchedGames.length > 0) {
-          setSelectedGameId(fetchedGames[0].id); // Auto-select the most recent game
+          setSelectedGameId(fetchedGames[0].id); 
         }
       } catch (e) {
         console.error("Error fetching games for dashboard:", e);
@@ -83,19 +90,31 @@ export function DashboardClient() {
         console.log(`Dashboard: Calculating stats for game ID: ${selectedGame.id}. Raw players data from Firestore:`, JSON.parse(JSON.stringify(selectedGame.players)));
       }
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
-        const pChips = Number(player.chips) || 0;
         const pInvested = Number(player.totalInvested) || 0;
-        const netValue = (pChips * DASHBOARD_CHIP_VALUE) - pInvested;
-        
-        if (process.env.NODE_ENV === 'development') {
-           console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Chips from Firestore: ${player.chips} (parsed as ${pChips}), Invested from Firestore: ${player.totalInvested} (parsed as ${pInvested}), DASHBOARD_CHIP_VALUE: ${DASHBOARD_CHIP_VALUE}, Calculated Net: ${netValue}`);
+        let netVal;
+
+        if (typeof player.netValueFromFinalChips === 'number') {
+          netVal = player.netValueFromFinalChips;
+           if (process.env.NODE_ENV === 'development') {
+             console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using netValueFromFinalChips: ${netVal}`);
+           }
+        } else if (typeof player.finalChips === 'number') {
+          const pFinalChips = player.finalChips;
+          netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pInvested;
+           if (process.env.NODE_ENV === 'development') {
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using finalChips: ${pFinalChips} (parsed), Invested: ${pInvested}, Calculated Net: ${netVal}`);
+          }
+        } else {
+          const pLiveChips = Number(player.chips) || 0;
+          netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using live chips: ${player.chips} (parsed as ${pLiveChips}), Invested: ${pInvested}, Calculated Net: ${netVal}`);
+          }
         }
         
         return {
           playerName: player.name,
-          totalInvested: pInvested,
-          finalChips: pChips,       
-          netValue: netValue,
+          netValue: netVal,
         };
       });
       setPlayerGameStats(stats.sort((a,b) => b.netValue - a.netValue));
@@ -110,7 +129,7 @@ export function DashboardClient() {
       return;
     }
 
-    const lifetimeMap: Record<string, { playerName: string; gamesPlayed: number; totalInvestedAllGames: number; totalFinalChipValueAllGames: number; totalNetValueAllGames: number; }> = {};
+    const lifetimeMap: Record<string, { playerName: string; gamesPlayed: number; totalNetValueAllGames: number; }> = {};
 
     games.forEach(game => {
       if (Array.isArray(game.players)) {
@@ -124,20 +143,24 @@ export function DashboardClient() {
             lifetimeMap[player.name] = {
               playerName: player.name,
               gamesPlayed: 0,
-              totalInvestedAllGames: 0,
-              totalFinalChipValueAllGames: 0,
               totalNetValueAllGames: 0,
             };
           }
           const current = lifetimeMap[player.name];
-          const pChips = Number(player.chips) || 0;
           const pInvested = Number(player.totalInvested) || 0;
+          let gameNetVal;
 
+          if (typeof player.netValueFromFinalChips === 'number') {
+            gameNetVal = player.netValueFromFinalChips;
+          } else if (typeof player.finalChips === 'number') {
+            gameNetVal = (player.finalChips * DASHBOARD_CHIP_VALUE) - pInvested;
+          } else {
+            const pLiveChips = Number(player.chips) || 0;
+            gameNetVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
+          }
+          
           current.gamesPlayed += 1;
-          current.totalInvestedAllGames += pInvested;
-          const finalChipValueInGame = pChips * DASHBOARD_CHIP_VALUE;
-          current.totalFinalChipValueAllGames += finalChipValueInGame;
-          current.totalNetValueAllGames += (finalChipValueInGame - pInvested);
+          current.totalNetValueAllGames += gameNetVal;
         });
       }
     });
@@ -166,7 +189,7 @@ export function DashboardClient() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary"/>Game Statistics Dashboard</CardTitle>
-          <CardDescription>Select a game to view its details. Lifetime statistics are shown below. Chip value for this dashboard is fixed at ₹{DASHBOARD_CHIP_VALUE}.</CardDescription>
+          <CardDescription>Select a game to view its details. Lifetime statistics are shown below. Chip value for dashboard net calculations is fixed at ₹{DASHBOARD_CHIP_VALUE}.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-6">
@@ -226,4 +249,3 @@ export function DashboardClient() {
     </div>
   );
 }
-

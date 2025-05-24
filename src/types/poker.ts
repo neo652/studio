@@ -2,8 +2,10 @@
 export interface Player {
   id: string;
   name: string;
-  chips: number;
+  chips: number; // Live chips from PlayerManagement
   totalInvested: number; // Sum of initial buy-in and all rebuys
+  finalChips?: number | null; // Manually entered final chips from PayoutCalculator
+  netValueFromFinalChips?: number | null; // Net value calculated from finalChips and fixed rate
 }
 
 export type TransactionType = 'buy-in' | 'rebuy' | 'cut' | 'payout_adjustment';
@@ -22,8 +24,8 @@ export interface PokerState {
   players: Player[];
   transactions: Transaction[];
   totalPot: number;
-  currentFirestoreGameId: string | null; // ID of the game loaded from/saved to Firestore
-  currentGameSavedAt: string | null; // Timestamp of when the current game was last saved/loaded
+  currentFirestoreGameId: string | null;
+  currentGameSavedAt: string | null;
 }
 
 // Firestore data structure for a single game document
@@ -45,18 +47,19 @@ export interface SavedGameSummary {
 
 export interface PokerContextType extends Omit<PokerState, 'currentFirestoreGameId' | 'currentGameSavedAt'> {
   currentFirestoreGameId: string | null;
-  currentGameSavedAt: string | null; // Make it available in context type
+  currentGameSavedAt: string | null;
   addPlayer: (name: string, initialBuyIn: number) => void;
   editPlayerName: (playerId: string, newName: string) => void;
   removePlayer: (playerId: string) => void;
   performTransaction: (playerId: string, type: 'rebuy' | 'cut', amount: number) => void;
-  adjustPayout: (playerId: string, adjustmentAmount: number) => void;
+  adjustPayout: (playerId: string, adjustmentAmount: number) => void; // This might need review if finalChips are now primary
   resetGame: () => void;
   isLoading: boolean;
   isSyncing: boolean;
   saveGameToFirestore: (playersToSave: Player[], transactionsToSave: Transaction[], currentTotalPot: number) => Promise<string | null>;
   fetchSavedGames: () => Promise<SavedGameSummary[]>;
   loadGameData: (gameId: string) => Promise<boolean>;
+  updatePlayerFinalStats: (playerId: string, finalChips: number | null, netValue: number | null) => void;
 }
 
 export interface SettlementPayment {
@@ -69,16 +72,16 @@ export interface SettlementPayment {
 // For Dashboard Page
 export interface PlayerInGameStats {
   playerName: string;
-  totalInvested: number;
-  finalChips: number;
-  netValue: number; // Calculated based on a fixed chip value for dashboard display
+  // totalInvested: number; // No longer displayed directly
+  // finalChips: number; // No longer displayed directly, netValue is primary
+  netValue: number;
 }
 
 export interface PlayerLifetimeStats {
   playerName: string;
   gamesPlayed: number;
-  totalInvestedAllGames: number;
-  totalFinalChipValueAllGames: number; // Sum of (finalChips * DASHBOARD_CHIP_VALUE) across games
+  // totalInvestedAllGames: number; // No longer displayed directly
+  // totalFinalChipValueAllGames: number; // No longer displayed directly
   totalNetValueAllGames: number;
 }
 

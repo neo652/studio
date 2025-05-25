@@ -40,6 +40,9 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
         setIsLoadingGames(true);
         setSelectedGameId(undefined); // Reset selection
         const games = await fetchSavedGames();
+        if (process.env.NODE_ENV === 'development') {
+          console.log('LoadGameDialog: Fetched games for dialog:', JSON.parse(JSON.stringify(games)));
+        }
         setSavedGames(games);
         setIsLoadingGames(false);
       };
@@ -56,7 +59,7 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
     }
   };
 
-  const isSyncing = isLoadingGames || isContextSyncing;
+  const isOverallSyncing = isLoadingGames || isContextSyncing;
 
   return (
     <Dialog open={isOpen} onOpenChange={(openState) => { if (!openState) onClose(); }}>
@@ -68,20 +71,20 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
-          {isSyncing && savedGames.length === 0 && (
+          {isLoadingGames && ( // Show loader specifically when fetching games for this dialog
             <div className="flex items-center justify-center p-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
               <p className="ml-2">Loading saved games...</p>
             </div>
           )}
-          {!isSyncing && savedGames.length === 0 && (
+          {!isLoadingGames && savedGames.length === 0 && (
             <p className="text-center text-muted-foreground">No saved games found in the cloud.</p>
           )}
-          {savedGames.length > 0 && (
+          {!isLoadingGames && savedGames.length > 0 && (
             <Select
               onValueChange={setSelectedGameId}
               value={selectedGameId}
-              disabled={isSyncing}
+              disabled={isOverallSyncing} // Disable select if context is busy or dialog is loading
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a game to load..." />
@@ -99,15 +102,15 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
           )}
         </div>
         <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose} disabled={isSyncing}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isOverallSyncing}>
             Cancel
           </Button>
           <Button
             type="button"
             onClick={handleLoadSelectedGame}
-            disabled={!selectedGameId || isSyncing}
+            disabled={!selectedGameId || isOverallSyncing}
           >
-            {isSyncing && selectedGameId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            {isContextSyncing && selectedGameId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
             Load Selected Game
           </Button>
         </DialogFooter>
@@ -115,3 +118,4 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
     </Dialog>
   );
 }
+

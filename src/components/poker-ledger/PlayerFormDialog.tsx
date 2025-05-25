@@ -97,7 +97,9 @@ export function PlayerFormDialog({
   }, [isOpen, mode, defaultValuesForEdit, form]);
 
   const handleDefaultPlayerSelect = (name: string, isSelected: boolean) => {
-    setDefaultPlayerSelections(prev => ({ ...prev, [name]: isSelected }));
+    setTimeout(() => {
+      setDefaultPlayerSelections(prev => ({ ...prev, [name]: isSelected }));
+    }, 0);
   };
 
   const handleFormSubmit = (values: FormValues) => {

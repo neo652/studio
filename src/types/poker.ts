@@ -56,7 +56,7 @@ export interface PokerContextType extends Omit<PokerState, 'currentFirestoreGame
   resetGame: () => void;
   isLoading: boolean;
   isSyncing: boolean;
-  saveGameToFirestore: (playersToSave: Player[], transactionsToSave: Transaction[], currentTotalPot: number) => Promise<string | null>;
+  saveGameToFirestore: () => Promise<string | null>; // Signature updated
   fetchSavedGames: () => Promise<SavedGameSummary[]>;
   loadGameData: (gameId: string) => Promise<boolean>;
   updatePlayerFinalStats: (playerId: string, finalChips: number | null, netValue: number | null) => void;
@@ -72,16 +72,12 @@ export interface SettlementPayment {
 // For Dashboard Page
 export interface PlayerInGameStats {
   playerName: string;
-  // totalInvested: number; // No longer displayed directly
-  // finalChips: number; // No longer displayed directly, netValue is primary
   netValue: number;
 }
 
 export interface PlayerLifetimeStats {
   playerName: string;
   gamesPlayed: number;
-  // totalInvestedAllGames: number; // No longer displayed directly
-  // totalFinalChipValueAllGames: number; // No longer displayed directly
   totalNetValueAllGames: number;
 }
 

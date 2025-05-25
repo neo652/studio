@@ -24,16 +24,17 @@ export function Header() {
     resetGame, 
     saveGameToFirestore, 
     isSyncing, 
-    players, 
-    transactions, 
-    totalPot,
+    players, // Used for enabling/disabling save button
+    // transactions, // No longer passed to saveGameToFirestore
+    // totalPot, // No longer passed to saveGameToFirestore
     currentFirestoreGameId,
     currentGameSavedAt 
   } = usePokerLedger();
   const [isLoadGameDialogOpen, setIsLoadGameDialogOpen] = React.useState(false);
 
   const handleSaveGame = async () => {
-    await saveGameToFirestore(players, transactions, totalPot);
+    // No longer passes arguments, saveGameToFirestore uses context's state
+    await saveGameToFirestore(); 
   };
 
   const formatGameTimestamp = (isoString: string | null): string => {

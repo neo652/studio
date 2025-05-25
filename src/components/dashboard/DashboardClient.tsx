@@ -9,7 +9,9 @@ import { GameStatsTable } from "./GameStatsTable";
 import { LifetimeStatsTable } from "./LifetimeStatsTable";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3, Users } from "lucide-react";
+import { Loader2, BarChart3, Users, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calculations
 
@@ -18,7 +20,7 @@ const parseNumericField = (value: any): number | null => {
   if (typeof value === 'number') {
     return value;
   }
-  if (value === null || value === undefined) {
+  if (value === null || value === undefined || value === '') {
     return null;
   }
   const num = Number(value);
@@ -29,20 +31,26 @@ const parseNumericField = (value: any): number | null => {
 export function DashboardClient() {
   const [games, setGames] = React.useState<SavedGameDocument[]>([]);
   const [selectedGameId, setSelectedGameId] = React.useState<string | null>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [isLoadingGames, setIsLoadingGames] = React.useState(true); // For initial game list load
   const [error, setError] = React.useState<string | null>(null);
 
   const [playerGameStats, setPlayerGameStats] = React.useState<PlayerInGameStats[]>([]);
-  const [playerLifetimeStats, setPlayerLifetimeStats] = React.useState<PlayerLifetimeStats[]>([]);
+  
+  // State for API-fetched lifetime stats
+  const [apiLifetimeStats, setApiLifetimeStats] = React.useState<PlayerLifetimeStats[]>([]);
+  const [isLoadingLifetimeStats, setIsLoadingLifetimeStats] = React.useState(false);
+  const [lifetimeStatsError, setLifetimeStatsError] = React.useState<string | null>(null);
+  const [areLifetimeStatsVisible, setAreLifetimeStatsVisible] = React.useState(false);
+
 
   React.useEffect(() => {
     const fetchGames = async () => {
-      setIsLoading(true);
+      setIsLoadingGames(true);
       setError(null);
       const db = getDb();
       if (!db) {
         setError("Firestore is not initialized. Cannot load dashboard data.");
-        setIsLoading(false);
+        setIsLoadingGames(false);
         return;
       }
 
@@ -63,7 +71,7 @@ export function DashboardClient() {
              try { savedAtDate = new Date(firestoreTimestamp.seconds * 1000); } catch (e) {/* use default */}
           }
 
-          const loadedPlayers = (data.players || []).map((p: any): PlayerType => ({ // Use any for raw p, then cast to PlayerType
+          const loadedPlayers = (data.players || []).map((p: any): PlayerType => ({ 
             id: p.id || `unknown-${Math.random()}`,
             name: p.name || "Unknown Player",
             chips: Number(p.chips) || 0,
@@ -89,7 +97,7 @@ export function DashboardClient() {
         console.error("Error fetching games for dashboard:", e);
         setError("Failed to load game data from Firestore.");
       } finally {
-        setIsLoading(false);
+        setIsLoadingGames(false);
       }
     };
 
@@ -109,24 +117,26 @@ export function DashboardClient() {
       }
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
         let netVal: number;
-        const pInvested = player.totalInvested; // Already parsed to number
+        const pInvested = player.totalInvested; 
 
-        if (typeof player.netValueFromFinalChips === 'number') {
-          netVal = player.netValueFromFinalChips;
-           if (process.env.NODE_ENV === 'development') {
-             console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using netValueFromFinalChips (type: ${typeof player.netValueFromFinalChips}): ${netVal}`);
-           }
-        } else if (typeof player.finalChips === 'number') {
-          const pFinalChips = player.finalChips;
+        const pNetFromFinal = player.netValueFromFinalChips;
+        const pFinalChips = player.finalChips;
+        const pLiveChips = player.chips;
+
+        if (typeof pNetFromFinal === 'number') {
+          netVal = pNetFromFinal;
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using netValueFromFinalChips (type: ${typeof pNetFromFinal}): ${netVal}`);
+          }
+        } else if (typeof pFinalChips === 'number') {
           netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pInvested;
            if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using finalChips (type: ${typeof player.finalChips}): ${pFinalChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using finalChips (type: ${typeof pFinalChips}): ${pFinalChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
           }
         } else {
-          const pLiveChips = player.chips; // Already parsed to number
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
           if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using live chips (type: ${typeof player.chips}): ${pLiveChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
+            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using live chips (type: ${typeof pLiveChips}): ${pLiveChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
           }
         }
         
@@ -141,51 +151,36 @@ export function DashboardClient() {
     }
   }, [selectedGameId, games]);
 
-  React.useEffect(() => {
-    if (games.length === 0) {
-      setPlayerLifetimeStats([]);
-      return;
-    }
+  // Removed direct calculation of playerLifetimeStats here
 
-    const lifetimeMap: Record<string, { playerName: string; gamesPlayed: number; totalNetValueAllGames: number; }> = {};
-
-    games.forEach(game => {
-      if (Array.isArray(game.players)) {
-        game.players.forEach(player => {
-          if (!player || typeof player.name !== 'string') {
-            console.warn("Skipping malformed player object in lifetime stats:", player);
-            return;
-          }
-
-          if (!lifetimeMap[player.name]) {
-            lifetimeMap[player.name] = {
-              playerName: player.name,
-              gamesPlayed: 0,
-              totalNetValueAllGames: 0,
-            };
-          }
-          const current = lifetimeMap[player.name];
-          const pInvested = player.totalInvested;
-          let gameNetVal;
-
-          if (typeof player.netValueFromFinalChips === 'number') {
-            gameNetVal = player.netValueFromFinalChips;
-          } else if (typeof player.finalChips === 'number') {
-            gameNetVal = (player.finalChips * DASHBOARD_CHIP_VALUE) - pInvested;
-          } else {
-            const pLiveChips = player.chips;
-            gameNetVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
-          }
-          
-          current.gamesPlayed += 1;
-          current.totalNetValueAllGames += gameNetVal;
-        });
+  const handleFetchLifetimeStats = async () => {
+    setIsLoadingLifetimeStats(true);
+    setLifetimeStatsError(null);
+    setApiLifetimeStats([]); // Clear previous stats
+    try {
+      const response = await fetch('/api/lifetime-stats');
+      if (!response.ok) {
+        if (response.status === 401) {
+          // The browser's Basic Auth prompt handles user input.
+          // If it fails again, they'll see this error.
+          throw new Error('Authentication failed or was cancelled. Please try again if you wish to view lifetime stats.');
+        }
+        throw new Error(`Failed to fetch lifetime stats. Server responded with ${response.status}.`);
       }
-    });
-    setPlayerLifetimeStats(Object.values(lifetimeMap).sort((a,b) => b.totalNetValueAllGames - a.totalNetValueAllGames));
-  }, [games]);
+      const data: PlayerLifetimeStats[] = await response.json();
+      setApiLifetimeStats(data);
+      setAreLifetimeStatsVisible(true); // Show them after successful fetch
+    } catch (err: any) {
+      console.error("Dashboard: Error fetching lifetime stats:", err);
+      setLifetimeStatsError(err.message || "An unknown error occurred.");
+      setAreLifetimeStatsVisible(false); // Hide on error
+    } finally {
+      setIsLoadingLifetimeStats(false);
+    }
+  };
 
-  if (isLoading) {
+
+  if (isLoadingGames) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-muted-foreground">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -198,7 +193,7 @@ export function DashboardClient() {
     return <p className="text-destructive text-center">{error}</p>;
   }
 
-  if (games.length === 0 && !isLoading) {
+  if (games.length === 0 && !isLoadingGames) {
     return <p className="text-muted-foreground text-center">No game data found in Firestore to display on the dashboard.</p>;
   }
 
@@ -207,7 +202,7 @@ export function DashboardClient() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary"/>Game Statistics Dashboard</CardTitle>
-          <CardDescription>Select a game to view its details. Lifetime statistics are shown below. Chip value for dashboard net calculations is fixed at ₹{DASHBOARD_CHIP_VALUE}.</CardDescription>
+          <CardDescription>Select a game to view its details. Lifetime statistics require authentication. Chip value for dashboard net calculations is fixed at ₹{DASHBOARD_CHIP_VALUE}.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-6">
@@ -257,15 +252,36 @@ export function DashboardClient() {
         <Card>
           <CardHeader>
              <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats</CardTitle>
-             <CardDescription>Aggregated performance across all saved games.</CardDescription>
+             <CardDescription>Aggregated performance across all saved games. Requires authentication.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <LifetimeStatsTable stats={playerLifetimeStats} />
+          <CardContent className="space-y-4">
+            {!areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
+              <Button onClick={handleFetchLifetimeStats}>
+                <Eye className="mr-2 h-4 w-4" /> Show Lifetime Stats
+              </Button>
+            )}
+            {isLoadingLifetimeStats && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mr-2" />
+                <p>Loading lifetime stats...</p>
+              </div>
+            )}
+            {lifetimeStatsError && (
+              <Alert variant="destructive">
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{lifetimeStatsError}</AlertDescription>
+              </Alert>
+            )}
+            {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
+              apiLifetimeStats.length > 0 ? (
+                <LifetimeStatsTable stats={apiLifetimeStats} />
+              ) : (
+                 <p className="text-muted-foreground text-center py-4">No lifetime player data available or authentication failed.</p>
+              )
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
-
-    

@@ -8,7 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { getDb } from '@/lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, addDoc, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 
-const POKER_LEDGER_STORAGE_KEY = 'pokerLedgerState_v3_finalChips_netValueStored'; // Versioned key
+const POKER_LEDGER_STORAGE_KEY = 'pokerLedgerState_v3_finalChips_netValueStored_multiGame'; // Versioned key
 const FIRESTORE_GAMES_COLLECTION_PATH = "pokerGames";
 
 const PokerLedgerContext = createContext<PokerContextType | undefined>(undefined);
@@ -18,9 +18,9 @@ const generateId = () => crypto.randomUUID();
 // Helper function for robust parsing of potentially numeric fields from Firestore or context
 const parseNumericField = (value: any): number | null => {
   if (typeof value === 'number') { // Handles 0 correctly
-    return value; 
+    return value;
   }
-  if (value === null || value === undefined || value === '') { 
+  if (value === null || value === undefined || value === '') {
     return null;
   }
   const num = Number(value);
@@ -121,7 +121,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         name,
         chips: initialBuyIn,
         totalInvested: initialBuyIn,
-        finalChips: null, 
+        finalChips: null,
         netValueFromFinalChips: null
       };
       addTransactionEntry(newPlayer.id, newPlayer.name, 'buy-in', initialBuyIn, newPlayer.chips);
@@ -178,7 +178,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
           return prevPlayers;
         }
         player.chips -= amount;
-        player.totalInvested -= amount; 
+        player.totalInvested -= amount;
         if (player.totalInvested < 0) player.totalInvested = 0;
       }
 
@@ -260,8 +260,8 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
           name: p.name,
           chips: Number(p.chips) || 0,
           totalInvested: Number(p.totalInvested) || 0,
-          finalChips: parseNumericField(p.finalChips),
-          netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips)
+          finalChips: parseNumericField(p.finalChips), // Ensure this is number or null
+          netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips) // Ensure this is number or null
         };
         if (process.env.NODE_ENV === 'development') {
             console.log(`Context: Player to save (inside map): ${p.name}`, JSON.parse(JSON.stringify(playerForDb)));
@@ -277,9 +277,9 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         players: sanitizedPlayersToSave,
         transactions: transactions,
         totalPot: totalPot,
-        savedAt: serverTimestamp(), 
+        savedAt: serverTimestamp(),
       };
-      
+
       let gameRefId: string;
       const now = new Date();
 
@@ -293,7 +293,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         const newDocRef = await addDoc(collection(db, FIRESTORE_GAMES_COLLECTION_PATH), gameDataToSave);
         gameRefId = newDocRef.id;
         setCurrentFirestoreGameId(gameRefId);
-        setCurrentGameSavedAt(now.toISOString()); 
+        setCurrentGameSavedAt(now.toISOString());
         toast({ title: "Sync Success", description: `Game saved to Cloud with ID: ${gameRefId.substring(0,6)}...).` });
       }
       return gameRefId;
@@ -306,13 +306,13 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const fetchSavedGames = async (): Promise<SavedGameSummary[]> => {
+  const fetchSavedGames = useCallback(async (): Promise<SavedGameSummary[]> => {
     const db = getDb();
     if (!db) {
       toast({ title: "Sync Error", description: "Firestore is not initialized.", variant: "destructive" });
       return [];
     }
-    setIsSyncing(true);
+    // setIsSyncing(true); // Removed to prevent loop with LoadGameDialog
     try {
       const gamesQuery = query(collection(db, FIRESTORE_GAMES_COLLECTION_PATH), orderBy("savedAt", "desc"));
       const querySnapshot = await getDocs(gamesQuery);
@@ -326,9 +326,9 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         const timestampToConvert = data.lastUpdatedAt || data.savedAt;
         if (timestampToConvert instanceof Timestamp) {
           savedAtStr = timestampToConvert.toDate().toLocaleString();
-        } else if (timestampToConvert && typeof (timestampToConvert as any).toDate === 'function') { 
+        } else if (timestampToConvert && typeof (timestampToConvert as any).toDate === 'function') {
           savedAtStr = (timestampToConvert as any).toDate().toLocaleString();
-        } else if (timestampToConvert) { 
+        } else if (timestampToConvert) {
            try { savedAtStr = new Date(timestampToConvert as any).toLocaleString(); } catch (e) {/* ignore */}
         }
 
@@ -345,9 +345,9 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
       toast({ title: "Sync Error", description: "Failed to fetch game list from Cloud.", variant: "destructive" });
       return [];
     } finally {
-      setIsSyncing(false);
+      // setIsSyncing(false); // Removed
     }
-  };
+  }, [toast]); // Dependency on toast is fine as toast function reference is stable
 
   const loadGameData = async (gameId: string): Promise<boolean> => {
     const db = getDb();
@@ -376,8 +376,8 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         setTotalPot(gameData.totalPot || 0);
         setCurrentFirestoreGameId(gameId);
 
-        let loadedGameSavedAtStr = new Date().toISOString(); 
-        const firestoreSavedAt = gameData.savedAt; 
+        let loadedGameSavedAtStr = new Date().toISOString();
+        const firestoreSavedAt = gameData.savedAt;
         if (firestoreSavedAt instanceof Timestamp) {
             loadedGameSavedAtStr = firestoreSavedAt.toDate().toISOString();
         } else if (firestoreSavedAt && typeof (firestoreSavedAt as any).toDate === 'function') {
@@ -403,12 +403,16 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
   };
 
 
-  return (
-    <PokerLedgerContext.Provider value={{
+  const contextValue = {
       players, transactions, totalPot, addPlayer, editPlayerName, removePlayer, performTransaction,
       adjustPayout, resetGame, isLoading, isSyncing, saveGameToFirestore, fetchSavedGames, loadGameData,
       currentFirestoreGameId, currentGameSavedAt, updatePlayerFinalStats
-    }}>
+  };
+  // Using useMemo for contextValue is good practice if PokerLedgerProvider has many children
+  // For now, direct object creation is fine as performance isn't impacted by this specific object.
+
+  return (
+    <PokerLedgerContext.Provider value={contextValue}>
       {children}
     </PokerLedgerContext.Provider>
   );

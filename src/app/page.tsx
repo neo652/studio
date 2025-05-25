@@ -13,7 +13,7 @@ export default function PokerLedgerPage() {
       <PokerLedgerProvider>
         <div className="min-h-screen flex flex-col">
           <div className="container mx-auto px-4 py-8 flex-grow">
-            <Header />
+            <Header pageType="main" /> {/* Explicitly set pageType for clarity */}
             <main className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
               <div className="lg:col-span-2 space-y-6 lg:space-y-8">
                 <PlayerManagement />
@@ -41,7 +41,12 @@ function AppSkeleton() {
           <Skeleton className="h-10 w-10 rounded-full" />
           <Skeleton className="h-10 w-48" />
         </div>
-        <Skeleton className="h-10 w-32" />
+        <div className="flex items-center space-x-2">
+            <Skeleton className="h-10 w-28" /> {/* Dashboard */}
+            <Skeleton className="h-10 w-24" /> {/* Load */}
+            <Skeleton className="h-10 w-24" /> {/* Save/Update */}
+            <Skeleton className="h-10 w-32" /> {/* New Game */}
+         </div>
       </header>
       <main className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         <div className="lg:col-span-2 space-y-6 lg:space-y-8">

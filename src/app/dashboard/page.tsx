@@ -1,7 +1,7 @@
 
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
-import { PokerLedgerProvider } from "@/contexts/PokerLedgerContext"; // For potential use if dashboard needs context actions, though primarily Firestore based
-import { Header } from "@/components/poker-ledger/Header"; // Keep consistent header
+import { PokerLedgerProvider } from "@/contexts/PokerLedgerContext";
+import { Header } from "@/components/poker-ledger/Header";
 import { ClientOnly } from "@/components/ClientOnly";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -19,10 +19,7 @@ function DashboardSkeleton() {
           <Skeleton className="h-10 w-48" />
         </div>
          <div className="flex items-center space-x-2">
-            <Skeleton className="h-10 w-28" />
-            <Skeleton className="h-10 w-24" />
-            <Skeleton className="h-10 w-24" />
-            <Skeleton className="h-10 w-32" />
+            <Skeleton className="h-10 w-32" /> {/* Placeholder for a button like "Return to Game" */}
          </div>
       </header>
       <main className="mt-8">
@@ -49,13 +46,11 @@ function DashboardSkeleton() {
 
 export default function DashboardPage() {
   return (
-    // PokerLedgerProvider might not be strictly necessary if dashboard is purely read-only from Firestore
-    // but Header component uses it.
     <ClientOnly fallback={<DashboardSkeleton />}>
       <PokerLedgerProvider> 
         <div className="min-h-screen flex flex-col">
           <div className="container mx-auto px-4 py-8 flex-grow">
-            <Header /> {/* Re-use the main app header for navigation */}
+            <Header pageType="dashboard" /> {/* Pass pageType to customize header */}
             <main className="mt-8">
               <DashboardClient />
             </main>

@@ -1,8 +1,8 @@
 
 "use client";
 
-import React, { useState, useMemo } from "react";
-import type { PlayerLifetimeStats, SavedGameDocument } from "@/types/poker";
+import React, { useState, useMemo, useEffect } from "react";
+import type { PlayerLifetimeStats, SavedGameDocument, Player as PlayerType } from "@/types/poker";
 import {
   BarChart,
   Bar,
@@ -11,7 +11,9 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  LabelList,
+  ReferenceLine,
+  Cell,
+  LabelList
 } from "recharts";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -22,56 +24,52 @@ interface LifetimeStatsChartProps {
   allGamesData: SavedGameDocument[];
 }
 
-const OUTCOME_CATEGORIES = [
-  { label: "Big Loss (<-1000)", min: -Infinity, max: -1001, color: "hsl(var(--destructive))" },
-  { label: "Mod. Loss (-1k to -501)", min: -1000, max: -501, color: "hsl(var(--destructive) / 0.8)" },
-  { label: "Small Loss (-500 to -1)", min: -500, max: -1, color: "hsl(var(--destructive) / 0.6)" },
-  { label: "Break Even (0)", min: 0, max: 0, color: "hsl(var(--muted-foreground))" },
-  { label: "Small Win (1 to 500)", min: 1, max: 500, color: "hsl(var(--primary) / 0.6)" },
-  { label: "Mod. Win (501 to 1k)", min: 501, max: 1000, color: "hsl(var(--primary) / 0.8)" },
-  { label: "Big Win (>1000)", min: 1001, max: Infinity, color: "hsl(var(--primary))" },
-];
-
-const chartConfig = {
-  count: {
-    label: "Number of Games",
-  },
-  // Dynamically add categories to chartConfig for legend/tooltip colors
-  ...OUTCOME_CATEGORIES.reduce((acc, cat) => {
-    acc[cat.label] = { label: cat.label, color: cat.color };
-    return acc;
-  }, {} as Record<string, { label: string; color: string }>)
-} satisfies ChartConfig;
-
-
-const DASHBOARD_CHIP_VALUE = 1;
+const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calculations
 
 const parsePlayerNumericField = (value: any): number | null => {
-  if (typeof value === 'number') return value;
-  if (value === null || value === undefined || value === '') return null;
+  if (typeof value === 'number' && !isNaN(value)) {
+    return value;
+  }
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
   const num = Number(value);
   return isNaN(num) ? null : num;
 };
 
+const chartConfig = {
+  win: {
+    label: "Win",
+    color: "hsl(var(--chart-1))", // A positive color from your theme
+  },
+  loss: {
+    label: "Loss",
+    color: "hsl(var(--destructive))", // A negative/destructive color
+  },
+} satisfies ChartConfig;
+
 export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartProps) {
   const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
+  const [playerGameData, setPlayerGameData] = useState<Array<{ gameLabel: string; netAmount: number; fill: string }>>([]);
 
-  const playerHistogramData = useMemo(() => {
+  useEffect(() => {
     if (!selectedPlayerName || !allGamesData || allGamesData.length === 0) {
-      return [];
+      setPlayerGameData([]);
+      return;
     }
 
-    const playerGameResults = allGamesData
+    const filteredGames = allGamesData
       .map(game => {
         const playerDataInGame = game.players.find(p => p.name === selectedPlayerName);
         if (!playerDataInGame) return null;
 
         let netAmount = 0;
         const pTotalInvested = parsePlayerNumericField(playerDataInGame.totalInvested) ?? 0;
+        
         const pNetFromFinal = parsePlayerNumericField(playerDataInGame.netValueFromFinalChips);
         const pFinalChips = parsePlayerNumericField(playerDataInGame.finalChips);
         const pLiveChips = parsePlayerNumericField(playerDataInGame.chips) ?? 0;
-        
+
         if (typeof pNetFromFinal === 'number') {
             netAmount = pNetFromFinal;
         } else if (typeof pFinalChips === 'number') {
@@ -79,19 +77,24 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
         } else {
             netAmount = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
         }
-        return netAmount;
+        
+        return {
+          savedAt: new Date(game.savedAt), // Ensure savedAt is a Date object for sorting
+          netAmount,
+        };
       })
-      .filter(result => typeof result === 'number') as number[];
+      .filter(game => game !== null) as Array<{ savedAt: Date; netAmount: number }>;
 
-    if (playerGameResults.length === 0) return [];
+    // Sort games chronologically
+    filteredGames.sort((a, b) => a.savedAt.getTime() - b.savedAt.getTime());
 
-    const histogram = OUTCOME_CATEGORIES.map(category => ({
-      category: category.label,
-      count: playerGameResults.filter(net => net >= category.min && net <= category.max).length,
-      fill: category.color,
+    const chartData = filteredGames.map((game, index) => ({
+      gameLabel: `G${index + 1}`,
+      netAmount: game.netAmount,
+      fill: game.netAmount >= 0 ? chartConfig.win.color : chartConfig.loss.color,
     }));
-    
-    return histogram.filter(bin => bin.count > 0); // Only show bins with games
+
+    setPlayerGameData(chartData);
 
   }, [selectedPlayerName, allGamesData]);
 
@@ -104,22 +107,22 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
   if (!stats || stats.length === 0) {
     return (
       <p className="text-muted-foreground text-center py-4 mt-4">
-        No lifetime player data available to display outcome distributions.
+        No lifetime player data available to display game-by-game stats.
       </p>
     );
   }
 
   return (
-    <div className="mt-6 space-y-4">
+    <div className="mt-2 space-y-4">
       <div>
-        <label htmlFor="player-histogram-selector" className="block text-sm font-medium text-muted-foreground mb-1">
-          Select Player for Outcome Distribution
+        <label htmlFor="player-game-chart-selector" className="block text-sm font-medium text-muted-foreground mb-1">
+          Select Player for Game-by-Game Performance
         </label>
         <Select
           value={selectedPlayerName || ""}
           onValueChange={(value) => setSelectedPlayerName(value || null)}
         >
-          <SelectTrigger id="player-histogram-selector" className="w-full md:w-1/2 lg:w-1/3">
+          <SelectTrigger id="player-game-chart-selector" className="w-full md:w-1/2 lg:w-1/3">
             <SelectValue placeholder="Select a player..." />
           </SelectTrigger>
           <SelectContent>
@@ -132,61 +135,63 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
         </Select>
       </div>
 
-      {selectedPlayerName && playerHistogramData.length === 0 && (
+      {selectedPlayerName && playerGameData.length === 0 && (
         <p className="text-muted-foreground text-center py-4">
-          No game outcome data found for {selectedPlayerName} or all games are outside defined categories.
+          No game data found for {selectedPlayerName}.
         </p>
       )}
 
-      {selectedPlayerName && playerHistogramData.length > 0 && (
+      {selectedPlayerName && playerGameData.length > 0 && (
         <>
-          <CardDescription className="text-center">
-            Game Outcome Distribution for {selectedPlayerName}
+          <CardDescription className="text-center my-2">
+            Game-by-Game Net Win/Loss for {selectedPlayerName} (Chips)
           </CardDescription>
           <div style={{ width: "100%", height: `${chartHeight}px` }}>
             <ChartContainer config={chartConfig} className="w-full h-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={playerHistogramData}
-                  layout="vertical"
+                  data={playerGameData}
                   margin={{
-                    top: 5,
+                    top: 20, // Increased top margin for LabelList
                     right: 30,
-                    left: 20, // Increased left margin for category labels
+                    left: 0, 
                     bottom: 5,
                   }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
-                    type="number" 
+                    dataKey="gameLabel"
                     stroke="hsl(var(--muted-foreground))"
                     tick={{ fontSize: 12 }}
-                    allowDecimals={false} // Ensure whole numbers for count
                   />
                   <YAxis 
-                    dataKey="category"
-                    type="category"
                     stroke="hsl(var(--muted-foreground))"
-                    tick={{ fontSize: 12, width: 150 }} // Give more space for category labels
-                    width={150} // Explicit width for YAxis
+                    tick={{ fontSize: 12 }}
+                    allowDecimals={false}
                   />
                   <Tooltip
                     cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
                     content={
                       <ChartTooltipContent 
                         formatter={(value, name, props) => {
-                            return [`${value} games`, chartConfig.count.label];
+                            const label = props.payload.netAmount >= 0 ? chartConfig.win.label : chartConfig.loss.label;
+                            return [`${(value as number).toLocaleString()} chips`, label];
                         }}
-                        labelFormatter={(label) => {
-                            return `Category: ${label}`;
-                        }}
+                        labelFormatter={(label) => `Game: ${label}`}
                       />
                     }
                   />
-                  {/* <Legend /> remove legend if only one series */}
-                  <Bar dataKey="count" name={chartConfig.count.label} radius={[4, 4, 0, 0]}>
-                    {/* LabelList can be added here if desired, to show count on bars */}
-                     <LabelList dataKey="count" position="right" offset={5} style={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
+                  <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                  <Bar dataKey="netAmount" radius={[4, 4, 0, 0]}>
+                    {playerGameData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                    ))}
+                    <LabelList 
+                        dataKey="netAmount" 
+                        position="top" 
+                        formatter={(value: number) => value.toLocaleString()}
+                        style={{ fill: 'hsl(var(--foreground))', fontSize: 11 }} 
+                    />
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
@@ -196,9 +201,11 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
       )}
        {!selectedPlayerName && (
          <p className="text-muted-foreground text-center py-4">
-            Select a player above to view their game outcome distribution.
+            Select a player above to view their game-by-game performance.
           </p>
        )}
     </div>
   );
 }
+
+    

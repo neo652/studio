@@ -80,7 +80,7 @@ export function DashboardClient() {
             netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
           }));
           
-          if (process.env.NODE_ENV === 'development' && doc.id === 'S0yDJsx0tSKbwIfGomC0') { // Example specific game ID for debugging
+          if (process.env.NODE_ENV === 'development' && doc.id === 'S0yDJsx0tSKbwIfGomC0') {
             console.log(`Dashboard Fetch (Game S0yDJsx0tSKbwIfGomC0): Raw players data from Firestore:`, JSON.parse(JSON.stringify(data.players)));
             console.log(`Dashboard Fetch (Game S0yDJsx0tSKbwIfGomC0): Parsed players for context:`, JSON.parse(JSON.stringify(loadedPlayers)));
           }
@@ -91,7 +91,7 @@ export function DashboardClient() {
             players: loadedPlayers,
             transactions: data.transactions || [],
             totalPot: data.totalPot || 0,
-            savedAt: savedAtDate.toISOString(), // Store as ISO string for consistent processing
+            savedAt: savedAtDate.toISOString(), 
             lastUpdatedAt: data.lastUpdatedAt ? (data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt.toDate().toISOString() : new Date(data.lastUpdatedAt as any).toISOString()) : undefined,
           });
         });
@@ -131,10 +131,9 @@ export function DashboardClient() {
         const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
         let netVal: number;
 
-        // Prioritize netValueFromFinalChips if it exists and is a number
         const pNetFromFinal = parseNumericField(player.netValueFromFinalChips);
         const pFinalChips = parseNumericField(player.finalChips);
-        const pLiveChips = parseNumericField(player.chips) ?? 0; // Fallback to live chips
+        const pLiveChips = parseNumericField(player.chips) ?? 0; 
 
         if (typeof pNetFromFinal === 'number') {
           netVal = pNetFromFinal;
@@ -146,7 +145,7 @@ export function DashboardClient() {
           if (process.env.NODE_ENV === 'development') {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
           }
-        } else { // Fallback if neither finalChips nor netValueFromFinalChips is available
+        } else { 
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
           if (process.env.NODE_ENV === 'development') {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using live chips (${typeof pLiveChips}): ${pLiveChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
@@ -294,11 +293,11 @@ export function DashboardClient() {
         </Card>
       </div>
       
-      {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && apiLifetimeStats.length > 0 && (
+      {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && apiLifetimeStats.length > 0 && games.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>Player Game-by-Game Performance</CardTitle>
-            <CardDescription>Select a player to view their net win/loss for each game. Requires authentication.</CardDescription>
+            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>All Players: Game-by-Game Net Performance</CardTitle>
+            <CardDescription>Net win/loss for each player across all games. Requires authentication.</CardDescription>
           </CardHeader>
           <CardContent>
              <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />
@@ -308,5 +307,3 @@ export function DashboardClient() {
     </div>
   );
 }
-
-    

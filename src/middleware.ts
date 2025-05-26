@@ -40,3 +40,4 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/api/lifetime-stats/:path*', '/dashboard/:path*'], // Protect dashboard and its API
 };
+

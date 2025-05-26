@@ -29,7 +29,7 @@ interface LoadGameDialogProps {
 }
 
 export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
-  const { fetchSavedGames, loadGameData, isSyncing: isContextSyncing } = usePokerLedger(); // Changed to fetchSavedGames
+  const { fetchSavedGames, fetchRecentSavedGamesForLoadDialog, loadGameData, isSyncing: isContextSyncing } = usePokerLedger();
   const [savedGames, setSavedGames] = React.useState<SavedGameSummary[]>([]);
   const [selectedGameId, setSelectedGameId] = React.useState<string | undefined>(undefined);
   const [isLoadingGames, setIsLoadingGames] = React.useState(false);
@@ -39,16 +39,43 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
       const loadGames = async () => {
         setIsLoadingGames(true);
         setSelectedGameId(undefined); // Reset selection
-        const games = await fetchSavedGames(); // Use fetchSavedGames to get all games
-        if (process.env.NODE_ENV === 'development') {
-          console.log('LoadGameDialog: Fetched all games for dialog:', JSON.parse(JSON.stringify(games)));
+        
+        let games: SavedGameSummary[] = [];
+        if (typeof window !== 'undefined') {
+          const hostname = window.location.hostname;
+          const isDevelopmentEnvironment =
+            hostname === 'localhost' ||
+            hostname.endsWith('.cloudworkstations.dev'); // Add other Firebase Studio specific patterns if needed
+
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`LoadGameDialog: Hostname: ${hostname}, isDevelopmentEnvironment: ${isDevelopmentEnvironment}`);
+          }
+
+          if (isDevelopmentEnvironment) {
+            games = await fetchSavedGames();
+             if (process.env.NODE_ENV === 'development') {
+                console.log('LoadGameDialog: Fetched all games for dialog (dev environment):', JSON.parse(JSON.stringify(games)));
+            }
+          } else {
+            games = await fetchRecentSavedGamesForLoadDialog();
+             if (process.env.NODE_ENV === 'development') {
+                console.log('LoadGameDialog: Fetched recent 2 games for dialog (prod environment):', JSON.parse(JSON.stringify(games)));
+            }
+          }
+        } else {
+          // Fallback for SSR or environments where window is not defined, though this component is client-side.
+          games = await fetchRecentSavedGamesForLoadDialog();
+           if (process.env.NODE_ENV === 'development') {
+            console.log('LoadGameDialog: Fetched recent 2 games for dialog (window undefined fallback):', JSON.parse(JSON.stringify(games)));
+          }
         }
+        
         setSavedGames(games);
         setIsLoadingGames(false);
       };
       loadGames();
     }
-  }, [isOpen, fetchSavedGames]);
+  }, [isOpen, fetchSavedGames, fetchRecentSavedGamesForLoadDialog]);
 
   const handleLoadSelectedGame = async () => {
     if (selectedGameId) {

@@ -3,7 +3,8 @@
 
 import type { PlayerLifetimeStats } from "@/types/poker";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { ScrollArea } from "@/components/ui/scroll-area";
+// ScrollArea import is no longer needed
+// import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface LifetimeStatsTableProps {
   stats: PlayerLifetimeStats[];
@@ -15,7 +16,7 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
   }
 
   return (
-    <ScrollArea className="h-[300px] sm:h-[400px] border rounded-md">
+    <div className="border rounded-md"> {/* Replaced ScrollArea with a div */}
       <Table>
         <TableHeader>
           <TableRow>
@@ -36,6 +37,6 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
           ))}
         </TableBody>
       </Table>
-    </ScrollArea>
+    </div>
   );
 }

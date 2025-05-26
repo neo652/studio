@@ -40,11 +40,11 @@ const parsePlayerNumericField = (value: any): number | null => {
 const chartConfig = {
   win: {
     label: "Win",
-    color: "hsl(var(--chart-1))", // A positive color from your theme
+    color: "hsl(var(--chart-1))", 
   },
   loss: {
     label: "Loss",
-    color: "hsl(var(--destructive))", // A negative/destructive color
+    color: "hsl(var(--destructive))", 
   },
 } satisfies ChartConfig;
 
@@ -66,6 +66,7 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
         let netAmount = 0;
         const pTotalInvested = parsePlayerNumericField(playerDataInGame.totalInvested) ?? 0;
         
+        // Prioritize netValueFromFinalChips, then finalChips, then live chips
         const pNetFromFinal = parsePlayerNumericField(playerDataInGame.netValueFromFinalChips);
         const pFinalChips = parsePlayerNumericField(playerDataInGame.finalChips);
         const pLiveChips = parsePlayerNumericField(playerDataInGame.chips) ?? 0;
@@ -89,7 +90,7 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
     filteredGames.sort((a, b) => a.savedAt.getTime() - b.savedAt.getTime());
 
     const chartData = filteredGames.map((game, index) => ({
-      gameLabel: `G${index + 1}`,
+      gameLabel: `G${index + 1}`, // Label games sequentially
       netAmount: game.netAmount,
       fill: game.netAmount >= 0 ? chartConfig.win.color : chartConfig.loss.color,
     }));
@@ -106,14 +107,14 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
 
   if (!stats || stats.length === 0) {
     return (
-      <p className="text-muted-foreground text-center py-4 mt-4">
+      <p className="text-muted-foreground text-center py-4">
         No lifetime player data available to display game-by-game stats.
       </p>
     );
   }
 
   return (
-    <div className="mt-2 space-y-4">
+    <div className="space-y-4"> {/* Removed mt-6 from here */}
       <div>
         <label htmlFor="player-game-chart-selector" className="block text-sm font-medium text-muted-foreground mb-1">
           Select Player for Game-by-Game Performance
@@ -152,7 +153,7 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
                 <BarChart
                   data={playerGameData}
                   margin={{
-                    top: 20, // Increased top margin for LabelList
+                    top: 20, 
                     right: 30,
                     left: 0, 
                     bottom: 5,
@@ -174,8 +175,9 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
                     content={
                       <ChartTooltipContent 
                         formatter={(value, name, props) => {
-                            const label = props.payload.netAmount >= 0 ? chartConfig.win.label : chartConfig.loss.label;
-                            return [`${(value as number).toLocaleString()} chips`, label];
+                            const tooltipValue = typeof value === 'number' ? value : 0;
+                            const label = tooltipValue >= 0 ? chartConfig.win.label : chartConfig.loss.label;
+                            return [`${tooltipValue.toLocaleString()} chips`, label];
                         }}
                         labelFormatter={(label) => `Game: ${label}`}
                       />
@@ -184,12 +186,12 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
                   <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
                   <Bar dataKey="netAmount" radius={[4, 4, 0, 0]}>
                     {playerGameData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.fill} />
+                      <Cell key={`cell-${entry.gameLabel}-${index}`} fill={entry.fill} />
                     ))}
-                    <LabelList 
+                     <LabelList 
                         dataKey="netAmount" 
                         position="top" 
-                        formatter={(value: number) => value.toLocaleString()}
+                        formatter={(value: number) => value !== 0 ? value.toLocaleString() : ""} // Hide label if value is 0
                         style={{ fill: 'hsl(var(--foreground))', fontSize: 11 }} 
                     />
                   </Bar>

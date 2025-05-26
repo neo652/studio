@@ -10,7 +10,7 @@ import { LifetimeStatsTable } from "./LifetimeStatsTable";
 import { LifetimeStatsChart } from "./LifetimeStatsChart"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3, Users, Eye, TrendingUp } from "lucide-react"; 
+import { Loader2, BarChart3, Users, Eye, TrendingUp, LineChart } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -121,7 +121,8 @@ export function DashboardClient() {
       if (process.env.NODE_ENV === 'development') {
         console.log(`Dashboard: Calculating Game Stats for game ID: ${selectedGame.id}. Full game object:`, JSON.parse(JSON.stringify(selectedGame)));
         selectedGame.players.forEach(player => {
-            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Final Chips from Firestore: ${player.finalChips}, Net Value from FinalChips: ${player.netValueFromFinalChips}, Live Chips from Firestore: ${player.chips}, Total Invested from Firestore: ${player.totalInvested}`);
+            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Raw Values - finalChips: ${player.finalChips}, netValueFromFinalChips: ${player.netValueFromFinalChips}, liveChips: ${player.chips}, totalInvested: ${player.totalInvested}`);
+            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Parsed Values - finalChips: ${parseNumericField(player.finalChips)}, netFromFinal: ${parseNumericField(player.netValueFromFinalChips)}, liveChips: ${parseNumericField(player.chips)}, totalInvested: ${parseNumericField(player.totalInvested)}`);
         });
       }
 
@@ -130,9 +131,10 @@ export function DashboardClient() {
         const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
         let netVal: number;
 
+        // Prioritize netValueFromFinalChips if it exists and is a number
         const pNetFromFinal = parseNumericField(player.netValueFromFinalChips);
         const pFinalChips = parseNumericField(player.finalChips);
-        const pLiveChips = parseNumericField(player.chips) ?? 0;
+        const pLiveChips = parseNumericField(player.chips) ?? 0; // Fallback to live chips
 
         if (typeof pNetFromFinal === 'number') {
           netVal = pNetFromFinal;
@@ -144,7 +146,7 @@ export function DashboardClient() {
           if (process.env.NODE_ENV === 'development') {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
           }
-        } else {
+        } else { // Fallback if neither finalChips nor netValueFromFinalChips is available
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
           if (process.env.NODE_ENV === 'development') {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using live chips (${typeof pLiveChips}): ${pLiveChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
@@ -260,13 +262,13 @@ export function DashboardClient() {
 
         <Card>
           <CardHeader>
-             <CardTitle className="flex items-center"><TrendingUp className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats & Trends</CardTitle> 
-             <CardDescription>Aggregated performance and game-by-game trends. Requires authentication.</CardDescription>
+             <CardTitle className="flex items-center"><TrendingUp className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats</CardTitle> 
+             <CardDescription>Aggregated performance summary. Requires authentication.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
               <Button onClick={handleFetchLifetimeStats}>
-                <Eye className="mr-2 h-4 w-4" /> Show Lifetime Stats & Trends
+                <Eye className="mr-2 h-4 w-4" /> Show Lifetime Stats
               </Button>
             )}
             {isLoadingLifetimeStats && (
@@ -283,12 +285,7 @@ export function DashboardClient() {
             )}
             {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
               apiLifetimeStats.length > 0 ? (
-                <>
-                  <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />
-                  <div className="mt-6"> 
-                    <LifetimeStatsTable stats={apiLifetimeStats} />
-                  </div>
-                </>
+                <LifetimeStatsTable stats={apiLifetimeStats} />
               ) : (
                  <p className="text-muted-foreground text-center py-4">No lifetime player data available or authentication failed.</p>
               )
@@ -296,6 +293,18 @@ export function DashboardClient() {
           </CardContent>
         </Card>
       </div>
+      
+      {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && apiLifetimeStats.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>Player Game-by-Game Performance</CardTitle>
+            <CardDescription>Select a player to view their net win/loss for each game. Requires authentication.</CardDescription>
+          </CardHeader>
+          <CardContent>
+             <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

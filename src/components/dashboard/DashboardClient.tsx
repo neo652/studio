@@ -119,6 +119,9 @@ export function DashboardClient() {
     if (selectedGame && Array.isArray(selectedGame.players)) {
       if (process.env.NODE_ENV === 'development') {
         console.log(`Dashboard: Calculating Game Stats for game ID: ${selectedGame.id}. Full game object:`, JSON.parse(JSON.stringify(selectedGame)));
+        selectedGame.players.forEach(player => {
+            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Chips from Firestore: ${player.chips}, Total Invested from Firestore: ${player.totalInvested}, Parsed Final Chips: ${player.finalChips}, Parsed Net Value from Final Chips: ${player.netValueFromFinalChips}`);
+        });
       }
 
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
@@ -280,8 +283,10 @@ export function DashboardClient() {
             {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
               apiLifetimeStats.length > 0 ? (
                 <>
-                  <LifetimeStatsTable stats={apiLifetimeStats} />
                   <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />
+                  <div className="mt-6"> {/* Added margin-top for spacing */}
+                    <LifetimeStatsTable stats={apiLifetimeStats} />
+                  </div>
                 </>
               ) : (
                  <p className="text-muted-foreground text-center py-4">No lifetime player data available or authentication failed.</p>

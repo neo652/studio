@@ -10,7 +10,7 @@ import { LifetimeStatsTable } from "./LifetimeStatsTable";
 import { LifetimeStatsChart } from "./LifetimeStatsChart";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3, Users, TrendingUp } from "lucide-react";
+import { Loader2, BarChart3, Users, TrendingUp, LineChart } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DASHBOARD_CHIP_VALUE = 1;
@@ -35,7 +35,7 @@ export function DashboardClient() {
   const [playerGameStats, setPlayerGameStats] = React.useState<PlayerInGameStats[]>([]);
   
   const [apiLifetimeStats, setApiLifetimeStats] = React.useState<PlayerLifetimeStats[]>([]);
-  const [isLoadingLifetime, setIsLoadingLifetime] = React.useState(true); // For lifetime stats fetching
+  const [isLoadingLifetime, setIsLoadingLifetime] = React.useState(true);
   const [lifetimeStatsError, setLifetimeStatsError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
@@ -118,8 +118,6 @@ export function DashboardClient() {
         setIsLoadingLifetime(false);
       }
     };
-
-    // Fetch lifetime stats when the component mounts (since the page is now auth-protected)
     fetchLifetimeStats();
   }, []);
 
@@ -137,6 +135,7 @@ export function DashboardClient() {
         const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
         let netVal: number;
 
+        // Priority: 1. netValueFromFinalChips, 2. finalChips, 3. live chips
         const pNetFromFinal = parseNumericField(player.netValueFromFinalChips);
         const pFinalChips = parseNumericField(player.finalChips);
         const pLiveChips = parseNumericField(player.chips) ?? 0;
@@ -156,6 +155,13 @@ export function DashboardClient() {
             - Raw finalChips from Firestore: ${player.finalChips}, Parsed: ${pFinalChips}
             - Raw netValueFromFinalChips from Firestore: ${player.netValueFromFinalChips}, Parsed: ${pNetFromFinal}
             - Calculated Net Value for GameStatsTable: ${netVal}`);
+        }
+        if (process.env.NODE_ENV === 'development') {
+            const gameForLog = games.find(g => g.id === selectedGameId);
+            if(gameForLog) {
+                // console.log(`DashboardClient - Game ${selectedGameId} Data for Player ${player.name}:`, JSON.parse(JSON.stringify(player)));
+                // console.log(`DashboardClient - Calculated Net Value for ${player.name} in Game ${selectedGameId}: ${netVal}`);
+            }
         }
         
         return {
@@ -204,6 +210,18 @@ export function DashboardClient() {
 
   return (
     <div className="space-y-8">
+      {games.length > 0 && allPlayerNamesForChart.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center"><LineChart className="mr-2 h-6 w-6 text-primary"/>Player Game-by-Game Performance</CardTitle>
+            <CardDescription>Select a player to view their net win/loss for each game.</CardDescription>
+          </CardHeader>
+          <CardContent>
+             <LifetimeStatsChart stats={allPlayerNamesForChart} allGamesData={games} />
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary"/>Game Statistics Dashboard</CardTitle>
@@ -233,18 +251,6 @@ export function DashboardClient() {
           </div>
         </CardContent>
       </Card>
-
-      {games.length > 0 && allPlayerNamesForChart.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">Player Game-by-Game Performance</CardTitle>
-            <CardDescription>Select a player to view their net win/loss for each game.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <LifetimeStatsChart stats={allPlayerNamesForChart} allGamesData={games} />
-          </CardContent>
-        </Card>
-      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
@@ -296,3 +302,4 @@ export function DashboardClient() {
     </div>
   );
 }
+

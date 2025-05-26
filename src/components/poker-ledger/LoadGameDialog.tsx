@@ -29,7 +29,7 @@ interface LoadGameDialogProps {
 }
 
 export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
-  const { fetchRecentSavedGamesForLoadDialog, loadGameData, isSyncing: isContextSyncing } = usePokerLedger();
+  const { fetchSavedGames, loadGameData, isSyncing: isContextSyncing } = usePokerLedger(); // Changed to fetchSavedGames
   const [savedGames, setSavedGames] = React.useState<SavedGameSummary[]>([]);
   const [selectedGameId, setSelectedGameId] = React.useState<string | undefined>(undefined);
   const [isLoadingGames, setIsLoadingGames] = React.useState(false);
@@ -39,16 +39,16 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
       const loadGames = async () => {
         setIsLoadingGames(true);
         setSelectedGameId(undefined); // Reset selection
-        const games = await fetchRecentSavedGamesForLoadDialog(); // Use the new function
+        const games = await fetchSavedGames(); // Use fetchSavedGames to get all games
         if (process.env.NODE_ENV === 'development') {
-          console.log('LoadGameDialog: Fetched recent games for dialog:', JSON.parse(JSON.stringify(games)));
+          console.log('LoadGameDialog: Fetched all games for dialog:', JSON.parse(JSON.stringify(games)));
         }
         setSavedGames(games);
         setIsLoadingGames(false);
       };
       loadGames();
     }
-  }, [isOpen, fetchRecentSavedGamesForLoadDialog]);
+  }, [isOpen, fetchSavedGames]);
 
   const handleLoadSelectedGame = async () => {
     if (selectedGameId) {
@@ -67,18 +67,18 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
         <DialogHeader>
           <DialogTitle>Load Game from Cloud</DialogTitle>
           <DialogDescription>
-            Select one of the two most recent games to load into your current session. This will overwrite any unsaved local data.
+            Select a game to load into your current session. This will overwrite any unsaved local data.
           </DialogDescription>
         </DialogHeader>
         <div className="py-4 space-y-4">
           {isLoadingGames && ( 
             <div className="flex items-center justify-center p-4">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="ml-2">Loading recent games...</p>
+              <p className="ml-2">Loading saved games...</p>
             </div>
           )}
           {!isLoadingGames && savedGames.length === 0 && (
-            <p className="text-center text-muted-foreground">No recent saved games found in the cloud.</p>
+            <p className="text-center text-muted-foreground">No saved games found in the cloud.</p>
           )}
           {!isLoadingGames && savedGames.length > 0 && (
             <Select
@@ -87,7 +87,7 @@ export function LoadGameDialog({ isOpen, onClose }: LoadGameDialogProps) {
               disabled={isOverallSyncing} 
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a recent game to load..." />
+                <SelectValue placeholder="Select a game to load..." />
               </SelectTrigger>
               <SelectContent>
                 <ScrollArea className="h-[200px]">

@@ -7,20 +7,21 @@ import { collection, getDocs, query, orderBy, Timestamp } from "firebase/firesto
 import type { SavedGameDocument, PlayerInGameStats, PlayerLifetimeStats, Player as PlayerType } from "@/types/poker";
 import { GameStatsTable } from "./GameStatsTable";
 import { LifetimeStatsTable } from "./LifetimeStatsTable";
+import { LifetimeStatsChart } from "./LifetimeStatsChart"; // Import the new chart component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3, Users, Eye } from "lucide-react";
+import { Loader2, BarChart3, Users, Eye, LineChart } from "lucide-react"; // Added LineChart for icon consistency
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calculations
 
-// Helper function for robust parsing of potentially numeric fields
+// Helper function for robust parsing of potentially numeric fields from Firestore or context
 const parseNumericField = (value: any): number | null => {
-  if (typeof value === 'number') {
+  if (typeof value === 'number') { // Handles 0 correctly
     return value;
   }
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined || value === '') { // Treat empty string as null
     return null;
   }
   const num = Number(value);
@@ -112,68 +113,71 @@ export function DashboardClient() {
 
     const selectedGame = games.find(g => g.id === selectedGameId);
     if (selectedGame && Array.isArray(selectedGame.players)) {
+      // For development: Log raw player data from Firestore for the selected game
       if (process.env.NODE_ENV === 'development') {
         console.log(`Dashboard: Calculating stats for game ID: ${selectedGame.id}. Raw players data from Firestore:`, JSON.parse(JSON.stringify(selectedGame.players)));
       }
+
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
+        // Robust parsing for values from Firestore for dashboard calculations
+        const pId = player.id || `unknown-${Math.random()}`;
+        const pName = player.name || "Unknown Player";
+        const pChips = parseNumericField(player.chips) ?? 0;
+        const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
+        const pFinalChips = parseNumericField(player.finalChips);
+        const pNetValueFromFinalChips = parseNumericField(player.netValueFromFinalChips);
+
         let netVal: number;
-        const pInvested = player.totalInvested; 
 
-        const pNetFromFinal = player.netValueFromFinalChips;
-        const pFinalChips = player.finalChips;
-        const pLiveChips = player.chips;
-
-        if (typeof pNetFromFinal === 'number') {
-          netVal = pNetFromFinal;
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using netValueFromFinalChips (type: ${typeof pNetFromFinal}): ${netVal}`);
+        if (typeof pNetValueFromFinalChips === 'number') {
+          netVal = pNetValueFromFinalChips;
+           if (process.env.NODE_ENV === 'development') {
+            console.log(`Dashboard Stats for ${pName} (Game ${selectedGame.id}): Using netValueFromFinalChips (type: ${typeof pNetValueFromFinalChips}): ${netVal}`);
           }
         } else if (typeof pFinalChips === 'number') {
-          netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pInvested;
-           if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using finalChips (type: ${typeof pFinalChips}): ${pFinalChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
+          netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`Dashboard Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (type: ${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
           }
         } else {
-          netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pInvested;
+          // Fallback to live chips if finalChips/netValueFromFinalChips are not available
+          netVal = (pChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
           if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Stats for ${player.name} (Game ${selectedGame.id}): Using live chips (type: ${typeof pLiveChips}): ${pLiveChips}, Invested: ${pInvested}, Calculated Net: ${netVal}`);
+            console.log(`Dashboard Stats for ${pName} (Game ${selectedGame.id}): Using live chips (type: ${typeof pChips}): ${pChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
           }
         }
         
         return {
-          playerName: player.name,
+          playerName: pName,
           netValue: netVal,
         };
-      });
-      setPlayerGameStats(stats.sort((a,b) => b.netValue - a.netValue));
+      }).sort((a,b) => b.netValue - a.netValue);
+      setPlayerGameStats(stats);
     } else {
       setPlayerGameStats([]);
     }
   }, [selectedGameId, games]);
 
-  // Removed direct calculation of playerLifetimeStats here
 
   const handleFetchLifetimeStats = async () => {
     setIsLoadingLifetimeStats(true);
     setLifetimeStatsError(null);
-    setApiLifetimeStats([]); // Clear previous stats
+    setApiLifetimeStats([]); 
     try {
       const response = await fetch('/api/lifetime-stats');
       if (!response.ok) {
         if (response.status === 401) {
-          // The browser's Basic Auth prompt handles user input.
-          // If it fails again, they'll see this error.
           throw new Error('Authentication failed or was cancelled. Please try again if you wish to view lifetime stats.');
         }
         throw new Error(`Failed to fetch lifetime stats. Server responded with ${response.status}.`);
       }
       const data: PlayerLifetimeStats[] = await response.json();
       setApiLifetimeStats(data);
-      setAreLifetimeStatsVisible(true); // Show them after successful fetch
+      setAreLifetimeStatsVisible(true); 
     } catch (err: any) {
       console.error("Dashboard: Error fetching lifetime stats:", err);
       setLifetimeStatsError(err.message || "An unknown error occurred.");
-      setAreLifetimeStatsVisible(false); // Hide on error
+      setAreLifetimeStatsVisible(false); 
     } finally {
       setIsLoadingLifetimeStats(false);
     }
@@ -251,7 +255,7 @@ export function DashboardClient() {
 
         <Card>
           <CardHeader>
-             <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats</CardTitle>
+             <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats</CardTitle> {/* Changed icon */}
              <CardDescription>Aggregated performance across all saved games. Requires authentication.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -274,7 +278,10 @@ export function DashboardClient() {
             )}
             {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
               apiLifetimeStats.length > 0 ? (
-                <LifetimeStatsTable stats={apiLifetimeStats} />
+                <>
+                  <LifetimeStatsTable stats={apiLifetimeStats} />
+                  <LifetimeStatsChart stats={apiLifetimeStats} />
+                </>
               ) : (
                  <p className="text-muted-foreground text-center py-4">No lifetime player data available or authentication failed.</p>
               )

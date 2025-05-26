@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useState, useMemo } from "react";
 import type { PlayerLifetimeStats, SavedGameDocument, Player as PlayerType } from "@/types/poker";
 import {
   BarChart,
@@ -12,36 +12,27 @@ import {
   Tooltip,
   ResponsiveContainer,
   ReferenceLine,
-  Legend,
-  Cell
+  LabelList,
+  Cell,
 } from "recharts";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CardDescription } from "@/components/ui/card";
 
 interface LifetimeStatsChartProps {
-  stats: PlayerLifetimeStats[]; // Used to get unique player names
+  stats: PlayerLifetimeStats[]; // Used to populate player dropdown
   allGamesData: SavedGameDocument[];
+}
+
+interface PlayerGameData {
+  gameLabel: string;
+  netAmount: number;
+  gameDate: string; // For tooltip
 }
 
 const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calculations
 
-// Helper to sanitize player names for use as dataKeys
-const sanitizePlayerNameForKey = (name: string) => name.replace(/\s+/g, '_').replace(/[^a-zA-Z0-9_]/g, '');
-
-// A simple palette of colors for player bars
-const PLAYER_COLORS = [
-  "hsl(var(--chart-1))",
-  "hsl(var(--chart-2))",
-  "hsl(var(--chart-3))",
-  "hsl(var(--chart-4))",
-  "hsl(var(--chart-5))",
-  "hsl(var(--primary))",
-  "hsl(var(--accent))",
-  // Add more colors if you anticipate more players than this palette
-  "#82ca9d", "#8884d8", "#ffc658", "#FF8042", "#00C49F", "#FFBB28"
-];
-
-
+// Helper to parse numeric fields robustly
 const parsePlayerNumericField = (value: any): number | null => {
   if (typeof value === 'number' && !isNaN(value)) {
     return value;
@@ -53,153 +44,149 @@ const parsePlayerNumericField = (value: any): number | null => {
   return isNaN(num) ? null : num;
 };
 
-
 export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartProps) {
-  const uniquePlayerNames = useMemo(() => {
-    if (!stats || stats.length === 0) return [];
-    return Array.from(new Set(stats.map(s => s.playerName))).sort();
-  }, [stats]);
+  const [selectedPlayerName, setSelectedPlayerName] = useState<string | null>(null);
 
-  const chartData = useMemo(() => {
-    if (!allGamesData || allGamesData.length === 0 || uniquePlayerNames.length === 0) {
+  const playerTrendData = useMemo(() => {
+    if (!selectedPlayerName || !allGamesData || allGamesData.length === 0) {
       return [];
     }
 
-    // Sort games chronologically
+    const playerGames: PlayerGameData[] = [];
     const sortedGames = [...allGamesData].sort((a, b) => new Date(a.savedAt).getTime() - new Date(b.savedAt).getTime());
 
-    return sortedGames.map((game, index) => {
-      const gameEntry: { gameLabel: string; [key: string]: any } = {
-        gameLabel: `G${index + 1}`,
-      };
+    sortedGames.forEach((game, index) => {
+      const playerDataInGame = game.players.find(p => p.name === selectedPlayerName);
+      if (playerDataInGame) {
+        let netAmount = 0;
+        const pTotalInvested = parsePlayerNumericField(playerDataInGame.totalInvested) ?? 0;
+        const pNetFromFinal = parsePlayerNumericField(playerDataInGame.netValueFromFinalChips);
+        const pFinalChips = parsePlayerNumericField(playerDataInGame.finalChips);
+        const pLiveChips = parsePlayerNumericField(playerDataInGame.chips) ?? 0;
 
-      uniquePlayerNames.forEach(playerName => {
-        const sanitizedKey = sanitizePlayerNameForKey(playerName);
-        const playerDataInGame = game.players.find(p => p.name === playerName);
-
-        if (playerDataInGame) {
-          let netAmount = 0;
-          const pTotalInvested = parsePlayerNumericField(playerDataInGame.totalInvested) ?? 0;
-          const pNetFromFinal = parsePlayerNumericField(playerDataInGame.netValueFromFinalChips);
-          const pFinalChips = parsePlayerNumericField(playerDataInGame.finalChips);
-          const pLiveChips = parsePlayerNumericField(playerDataInGame.chips) ?? 0;
-
-          if (typeof pNetFromFinal === 'number') {
-            netAmount = pNetFromFinal;
-          } else if (typeof pFinalChips === 'number') {
-            netAmount = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          } else {
-            netAmount = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          }
-          gameEntry[sanitizedKey] = netAmount;
+        if (typeof pNetFromFinal === 'number') {
+          netAmount = pNetFromFinal;
+        } else if (typeof pFinalChips === 'number') {
+          netAmount = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
         } else {
-          gameEntry[sanitizedKey] = 0; // Or null/undefined if you prefer gaps for players not in game
+          netAmount = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
         }
-      });
-      return gameEntry;
+        
+        playerGames.push({
+          gameLabel: `G${index + 1}`,
+          netAmount: netAmount,
+          gameDate: new Date(game.savedAt).toLocaleDateString(),
+        });
+      }
     });
-  }, [allGamesData, uniquePlayerNames]);
+    return playerGames;
+  }, [selectedPlayerName, allGamesData]);
 
-  const chartConfig: ChartConfig = useMemo(() => {
-    const config: ChartConfig = {};
-    uniquePlayerNames.forEach((name, index) => {
-      const sanitizedKey = sanitizePlayerNameForKey(name);
-      config[sanitizedKey] = {
-        label: name,
-        color: PLAYER_COLORS[index % PLAYER_COLORS.length],
-      };
-    });
-    return config;
-  }, [uniquePlayerNames]);
-  
+  const chartConfig = {
+    netAmount: {
+      label: "Net Win/Loss (Chips)",
+    },
+  } satisfies ChartConfig;
+
   const chartHeight = 350;
 
-  if (!allGamesData || allGamesData.length === 0) {
+  if (stats.length === 0) {
     return (
       <p className="text-muted-foreground text-center py-4">
-        No game data available to display charts.
+        No lifetime player data available to select players.
       </p>
     );
   }
   
-  if (uniquePlayerNames.length === 0) {
-     return (
-      <p className="text-muted-foreground text-center py-4">
-        No players found in lifetime stats to plot game-by-game performance.
-      </p>
-    );
-  }
-
-
   return (
     <div className="space-y-4">
-      {chartData.length === 0 && (
-        <p className="text-muted-foreground text-center py-4">
-          No game data available to display performance chart.
+      <div className="flex flex-col sm:flex-row items-center gap-4">
+        <Select onValueChange={setSelectedPlayerName} value={selectedPlayerName || ""}>
+          <SelectTrigger className="w-full sm:w-[280px]">
+            <SelectValue placeholder="Select a player..." />
+          </SelectTrigger>
+          <SelectContent>
+            {stats.map((player) => (
+              <SelectItem key={player.playerName} value={player.playerName}>
+                {player.playerName}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedPlayerName && playerTrendData.length > 0 && (
+             <CardDescription className="flex-1 text-center sm:text-left">
+                Game-by-game net performance for {selectedPlayerName}.
+            </CardDescription>
+        )}
+      </div>
+
+      {!selectedPlayerName && (
+        <p className="text-muted-foreground text-center py-8">
+          Select a player to view their game-by-game performance.
         </p>
       )}
 
-      {chartData.length > 0 && (
-        <>
-          <CardDescription className="text-center my-2">
-            Net Win/Loss per Game for All Players (Chips)
-          </CardDescription>
-          <div style={{ width: "100%", height: `${chartHeight}px` }}>
-            <ChartContainer config={chartConfig} className="w-full h-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={chartData}
-                  margin={{
-                    top: 5, 
-                    right: 30,
-                    left: 0, 
-                    bottom: 5,
-                  }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="gameLabel"
-                    stroke="hsl(var(--muted-foreground))"
-                    tick={{ fontSize: 12 }}
-                  />
-                  <YAxis 
-                    stroke="hsl(var(--muted-foreground))"
-                    tick={{ fontSize: 12 }}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
-                    content={
-                      <ChartTooltipContent 
+      {selectedPlayerName && playerTrendData.length === 0 && (
+        <p className="text-muted-foreground text-center py-8">
+          No game data found for {selectedPlayerName}.
+        </p>
+      )}
+
+      {selectedPlayerName && playerTrendData.length > 0 && (
+        <div style={{ width: "100%", height: `${chartHeight}px` }}>
+          <ChartContainer config={chartConfig} className="w-full h-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={playerTrendData}
+                margin={{
+                  top: 20, // Increased top margin for LabelList
+                  right: 20,
+                  left: 0,
+                  bottom: 5,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis 
+                  dataKey="gameLabel"
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fontSize: 12 }}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  tick={{ fontSize: 12 }}
+                  allowDecimals={false}
+                />
+                <Tooltip
+                  cursor={{ fill: 'hsl(var(--muted) / 0.3)' }}
+                  content={
+                    <ChartTooltipContent 
                         formatter={(value, name, props) => {
-                            // 'name' here is the sanitizedKey
-                            const originalPlayerName = chartConfig[name]?.label || name;
+                            const originalPlayerName = selectedPlayerName || "Player";
                             const tooltipValue = typeof value === 'number' ? value : 0;
-                            return [`${tooltipValue.toLocaleString()} chips`, originalPlayerName as string];
+                            // props.payload contains the full data point, including gameDate
+                            const gameDate = props.payload?.gameDate || "";
+                            return [`${tooltipValue.toLocaleString()} chips (${gameDate})`, originalPlayerName];
                         }}
                         labelFormatter={(label) => `Game: ${label}`}
-                      />
-                    }
+                    />
+                  }
+                />
+                <ReferenceLine y={0} stroke="hsl(var(--border))" strokeWidth={1} strokeDasharray="3 3"/>
+                <Bar dataKey="netAmount" radius={[2, 2, 0, 0]}>
+                  <LabelList 
+                    dataKey="netAmount" 
+                    position="top" 
+                    formatter={(value: number) => value.toLocaleString()}
+                    style={{ fontSize: '10px', fill: 'hsl(var(--foreground))' }}
                   />
-                  <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
-                  <Legend />
-                  {uniquePlayerNames.map((playerName, index) => {
-                    const sanitizedKey = sanitizePlayerNameForKey(playerName);
-                    return (
-                      <Bar 
-                        key={sanitizedKey} 
-                        dataKey={sanitizedKey} 
-                        name={playerName} // Original name for legend
-                        fill={PLAYER_COLORS[index % PLAYER_COLORS.length]} 
-                        radius={[2, 2, 0, 0]}
-                      />
-                    );
-                  })}
-                </BarChart>
-              </ResponsiveContainer>
-            </ChartContainer>
-          </div>
-        </>
+                  {playerTrendData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.netAmount >= 0 ? "hsl(var(--chart-2))" : "hsl(var(--destructive))"} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartContainer>
+        </div>
       )}
     </div>
   );

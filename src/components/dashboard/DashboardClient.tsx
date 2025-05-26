@@ -80,9 +80,9 @@ export function DashboardClient() {
             netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
           }));
           
-          if (process.env.NODE_ENV === 'development' && doc.id === 'S0yDJsx0tSKbwIfGomC0') {
-            console.log(`Dashboard Fetch (Game S0yDJsx0tSKbwIfGomC0): Raw players data from Firestore:`, JSON.parse(JSON.stringify(data.players)));
-            console.log(`Dashboard Fetch (Game S0yDJsx0tSKbwIfGomC0): Parsed players for context:`, JSON.parse(JSON.stringify(loadedPlayers)));
+          if (process.env.NODE_ENV === 'development') {
+            // console.log(`Dashboard Fetch (Game ${doc.id}): Raw players data from Firestore:`, JSON.parse(JSON.stringify(data.players)));
+            // console.log(`Dashboard Fetch (Game ${doc.id}): Parsed players for context:`, JSON.parse(JSON.stringify(loadedPlayers)));
           }
 
 
@@ -121,8 +121,8 @@ export function DashboardClient() {
       if (process.env.NODE_ENV === 'development') {
         console.log(`Dashboard: Calculating Game Stats for game ID: ${selectedGame.id}. Full game object:`, JSON.parse(JSON.stringify(selectedGame)));
         selectedGame.players.forEach(player => {
-            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Raw Values - finalChips: ${player.finalChips}, netValueFromFinalChips: ${player.netValueFromFinalChips}, liveChips: ${player.chips}, totalInvested: ${player.totalInvested}`);
-            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Parsed Values - finalChips: ${parseNumericField(player.finalChips)}, netFromFinal: ${parseNumericField(player.netValueFromFinalChips)}, liveChips: ${parseNumericField(player.chips)}, totalInvested: ${parseNumericField(player.totalInvested)}`);
+            // console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Raw Values - finalChips: ${player.finalChips}, netValueFromFinalChips: ${player.netValueFromFinalChips}, liveChips: ${player.chips}, totalInvested: ${player.totalInvested}`);
+            // console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Parsed Values - finalChips: ${parseNumericField(player.finalChips)}, netFromFinal: ${parseNumericField(player.netValueFromFinalChips)}, liveChips: ${parseNumericField(player.chips)}, totalInvested: ${parseNumericField(player.totalInvested)}`);
         });
       }
 
@@ -137,19 +137,19 @@ export function DashboardClient() {
 
         if (typeof pNetFromFinal === 'number') {
           netVal = pNetFromFinal;
-           if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using netValueFromFinalChips (${typeof pNetFromFinal}): ${netVal}`);
-          }
+          //  if (process.env.NODE_ENV === 'development') {
+          //   console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using netValueFromFinalChips (${typeof pNetFromFinal}): ${netVal}`);
+          // }
         } else if (typeof pFinalChips === 'number') {
           netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
-          }
+          // if (process.env.NODE_ENV === 'development') {
+          //   console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
+          // }
         } else { 
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using live chips (${typeof pLiveChips}): ${pLiveChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
-          }
+          // if (process.env.NODE_ENV === 'development') {
+          //   console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using live chips (${typeof pLiveChips}): ${pLiveChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
+          // }
         }
         
         return {
@@ -282,9 +282,11 @@ export function DashboardClient() {
                 <AlertDescription>{lifetimeStatsError}</AlertDescription>
               </Alert>
             )}
-            {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
+             {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
               apiLifetimeStats.length > 0 ? (
-                <LifetimeStatsTable stats={apiLifetimeStats} />
+                <>
+                  <LifetimeStatsTable stats={apiLifetimeStats} />
+                </>
               ) : (
                  <p className="text-muted-foreground text-center py-4">No lifetime player data available or authentication failed.</p>
               )
@@ -296,8 +298,8 @@ export function DashboardClient() {
       {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && apiLifetimeStats.length > 0 && games.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>All Players: Game-by-Game Net Performance</CardTitle>
-            <CardDescription>Net win/loss for each player across all games. Requires authentication.</CardDescription>
+            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>Player Game-by-Game Performance</CardTitle>
+            <CardDescription>Select a player to view their net win/loss for each game.</CardDescription>
           </CardHeader>
           <CardContent>
              <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />

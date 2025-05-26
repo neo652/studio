@@ -224,11 +224,9 @@ export function DashboardClient() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary"/>Game Statistics Dashboard</CardTitle>
-          <CardDescription>Select a game to view its details. Chip value for dashboard net calculations is fixed at ₹{DASHBOARD_CHIP_VALUE}.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mb-6">
+          <CardTitle className="flex items-center"><BarChart3 className="mr-2 h-6 w-6 text-primary"/>Game Statistics</CardTitle>
+          <CardDescription>Select a game to view its player net values. Chip value for dashboard net calculations is fixed at ₹{DASHBOARD_CHIP_VALUE}.</CardDescription>
+          <div className="mt-4">
             <label htmlFor="game-selector" className="block text-sm font-medium text-muted-foreground mb-1">
               Select Game (Newest First)
             </label>
@@ -249,29 +247,22 @@ export function DashboardClient() {
               </SelectContent>
             </Select>
           </div>
+        </CardHeader>
+        <CardContent>
+          {selectedGameId && games.find(g => g.id === selectedGameId) ? (
+            <>
+              <p className="text-sm text-muted-foreground mb-2">
+                Displaying stats for game saved on: {new Date(games.find(g => g.id === selectedGameId)!.savedAt).toLocaleString()}
+              </p>
+              <GameStatsTable stats={playerGameStats} />
+            </>
+          ) : (
+            <p className="text-muted-foreground text-center py-4">Select a game to view its statistics.</p>
+          )}
         </CardContent>
       </Card>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary"/>Selected Game Stats</CardTitle>
-            {selectedGameId && games.find(g => g.id === selectedGameId) && (
-                 <CardDescription>
-                    Details for game saved on: {new Date(games.find(g => g.id === selectedGameId)!.savedAt).toLocaleString()}
-                 </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent>
-            {selectedGameId ? (
-              <GameStatsTable stats={playerGameStats} />
-            ) : (
-              <p className="text-muted-foreground">Select a game to view its statistics.</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
+      
+      <Card>
           <CardHeader>
              <CardTitle className="flex items-center"><TrendingUp className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats</CardTitle>
              <CardDescription>Aggregated performance summary across all saved games.</CardDescription>
@@ -297,9 +288,7 @@ export function DashboardClient() {
               )
             )}
           </CardContent>
-        </Card>
-      </div>
+      </Card>
     </div>
   );
 }
-

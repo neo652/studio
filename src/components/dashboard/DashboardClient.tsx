@@ -10,14 +10,14 @@ import { LifetimeStatsTable } from "./LifetimeStatsTable";
 import { LifetimeStatsChart } from "./LifetimeStatsChart"; 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, BarChart3, Users, Eye, LineChart as TrendIcon } from "lucide-react"; 
+import { Loader2, BarChart3, Users, Eye, PieChart as DistroIcon } from "lucide-react"; 
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DASHBOARD_CHIP_VALUE = 1; 
 
 const parseNumericField = (value: any): number | null => {
-  if (typeof value === 'number') { 
+  if (typeof value === 'number' && !isNaN(value)) { // ensure it's not NaN
     return value;
   }
   if (value === null || value === undefined || value === '') { 
@@ -79,7 +79,7 @@ export function DashboardClient() {
             netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
           }));
           
-          if (process.env.NODE_ENV === 'development' && doc.id === 'S0yDJsx0tSKbwIfGomC0') {
+          if (process.env.NODE_ENV === 'development' && doc.id === 'S0yDJsx0tSKbwIfGomC0') { // Example specific game ID for debugging
             console.log(`Dashboard Fetch (Game S0yDJsx0tSKbwIfGomC0): Raw players data from Firestore:`, JSON.parse(JSON.stringify(data.players)));
             console.log(`Dashboard Fetch (Game S0yDJsx0tSKbwIfGomC0): Parsed players for context:`, JSON.parse(JSON.stringify(loadedPlayers)));
           }
@@ -90,7 +90,7 @@ export function DashboardClient() {
             players: loadedPlayers,
             transactions: data.transactions || [],
             totalPot: data.totalPot || 0,
-            savedAt: savedAtDate.toISOString(),
+            savedAt: savedAtDate.toISOString(), // Store as ISO string for consistent processing
             lastUpdatedAt: data.lastUpdatedAt ? (data.lastUpdatedAt instanceof Timestamp ? data.lastUpdatedAt.toDate().toISOString() : new Date(data.lastUpdatedAt as any).toISOString()) : undefined,
           });
         });
@@ -120,7 +120,7 @@ export function DashboardClient() {
       if (process.env.NODE_ENV === 'development') {
         console.log(`Dashboard: Calculating Game Stats for game ID: ${selectedGame.id}. Full game object:`, JSON.parse(JSON.stringify(selectedGame)));
         selectedGame.players.forEach(player => {
-            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Chips from Firestore: ${player.chips}, Total Invested from Firestore: ${player.totalInvested}, Parsed Final Chips: ${player.finalChips}, Parsed Net Value from Final Chips: ${player.netValueFromFinalChips}`);
+            console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Live Chips from Firestore: ${player.chips}, Total Invested from Firestore: ${player.totalInvested}, Parsed Final Chips: ${player.finalChips}, Parsed Net Value from Final Chips: ${player.netValueFromFinalChips}`);
         });
       }
 
@@ -129,9 +129,10 @@ export function DashboardClient() {
         const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
         let netVal: number;
 
+        // Prioritize netValueFromFinalChips if available (meaning PayoutCalculator was used and saved)
         const pNetFromFinal = parseNumericField(player.netValueFromFinalChips);
         const pFinalChips = parseNumericField(player.finalChips);
-        const pLiveChips = parseNumericField(player.chips) ?? 0;
+        const pLiveChips = parseNumericField(player.chips) ?? 0; // Fallback to live chips
 
         if (typeof pNetFromFinal === 'number') {
           netVal = pNetFromFinal;
@@ -139,11 +140,13 @@ export function DashboardClient() {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using netValueFromFinalChips (${typeof pNetFromFinal}): ${netVal}`);
           }
         } else if (typeof pFinalChips === 'number') {
+          // If netValueFromFinalChips isn't there, but finalChips is, calculate net
           netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
           if (process.env.NODE_ENV === 'development') {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
           }
         } else {
+          // Fallback: If neither netValueFromFinalChips nor finalChips are available, use live chips
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
           if (process.env.NODE_ENV === 'development') {
             console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using live chips (${typeof pLiveChips}): ${pLiveChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
@@ -259,13 +262,13 @@ export function DashboardClient() {
 
         <Card>
           <CardHeader>
-             <CardTitle className="flex items-center"><TrendIcon className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats & Trends</CardTitle> 
-             <CardDescription>Aggregated performance and game-by-game trends. Requires authentication.</CardDescription>
+             <CardTitle className="flex items-center"><DistroIcon className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats & Outcome Distribution</CardTitle> 
+             <CardDescription>Aggregated performance and game-by-game outcome distribution. Requires authentication.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
               <Button onClick={handleFetchLifetimeStats}>
-                <Eye className="mr-2 h-4 w-4" /> Show Lifetime Stats & Trends
+                <Eye className="mr-2 h-4 w-4" /> Show Lifetime Stats & Distribution
               </Button>
             )}
             {isLoadingLifetimeStats && (
@@ -284,7 +287,7 @@ export function DashboardClient() {
               apiLifetimeStats.length > 0 ? (
                 <>
                   <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />
-                  <div className="mt-6"> {/* Added margin-top for spacing */}
+                  <div className="mt-6"> 
                     <LifetimeStatsTable stats={apiLifetimeStats} />
                   </div>
                 </>

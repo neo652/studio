@@ -52,12 +52,12 @@ export interface PokerContextType extends Omit<PokerState, 'currentFirestoreGame
   editPlayerName: (playerId: string, newName: string) => void;
   removePlayer: (playerId: string) => void;
   performTransaction: (playerId: string, type: 'rebuy' | 'cut', amount: number) => void;
-  adjustPayout: (playerId: string, adjustmentAmount: number) => void; // This might need review if finalChips are now primary
   resetGame: () => void;
   isLoading: boolean;
   isSyncing: boolean;
-  saveGameToFirestore: () => Promise<string | null>; // Signature updated
-  fetchSavedGames: () => Promise<SavedGameSummary[]>;
+  saveGameToFirestore: () => Promise<string | null>;
+  fetchSavedGames: () => Promise<SavedGameSummary[]>; // Still fetches all games, potentially for other uses
+  fetchRecentSavedGamesForLoadDialog: () => Promise<SavedGameSummary[]>; // New function
   loadGameData: (gameId: string) => Promise<boolean>;
   updatePlayerFinalStats: (playerId: string, finalChips: number | null, netValue: number | null) => void;
 }

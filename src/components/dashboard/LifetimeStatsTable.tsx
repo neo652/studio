@@ -20,8 +20,8 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
           <TableRow>
             <TableHead>Player</TableHead>
             <TableHead className="text-right">Games Played</TableHead>
-            <TableHead className="text-right">Win/Loss (₹)</TableHead>
-            <TableHead className="text-right">Settlement Share (₹)</TableHead>
+            <TableHead className="text-right">Win/Loss Chips</TableHead>
+            <TableHead className="text-right">(₹)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -33,7 +33,7 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
                 {playerStat.totalNetValueAllGames.toLocaleString()}
               </TableCell>
               <TableCell className={`text-right font-semibold ${playerStat.totalNetValueAllGames / 2 >= 0 ? 'text-green-500' : 'text-destructive'}`}>
-                {(playerStat.totalNetValueAllGames / 2).toLocaleString()}
+                {(playerStat.totalNetValueAllGames / 2).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
               </TableCell>
             </TableRow>
           ))}
@@ -42,3 +42,4 @@ export function LifetimeStatsTable({ stats }: LifetimeStatsTableProps) {
     </div>
   );
 }
+

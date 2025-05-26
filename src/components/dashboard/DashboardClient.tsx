@@ -16,9 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const DASHBOARD_CHIP_VALUE = 1; 
 
-// Helper function for robust parsing of potentially numeric fields from Firestore or context
 const parseNumericField = (value: any): number | null => {
-  if (typeof value === 'number' && !isNaN(value)) { // ensure it's not NaN
+  if (typeof value === 'number' && !isNaN(value)) {
     return value;
   }
   if (value === null || value === undefined || value === '') { 
@@ -85,7 +84,6 @@ export function DashboardClient() {
             // console.log(`Dashboard Fetch (Game ${doc.id}): Parsed players for context:`, JSON.parse(JSON.stringify(loadedPlayers)));
           }
 
-
           fetchedGames.push({
             id: doc.id,
             players: loadedPlayers,
@@ -118,14 +116,6 @@ export function DashboardClient() {
 
     const selectedGame = games.find(g => g.id === selectedGameId);
     if (selectedGame && Array.isArray(selectedGame.players)) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Dashboard: Calculating Game Stats for game ID: ${selectedGame.id}. Full game object:`, JSON.parse(JSON.stringify(selectedGame)));
-        selectedGame.players.forEach(player => {
-            // console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Raw Values - finalChips: ${player.finalChips}, netValueFromFinalChips: ${player.netValueFromFinalChips}, liveChips: ${player.chips}, totalInvested: ${player.totalInvested}`);
-            // console.log(`Dashboard: Game Stats - Player ${player.name} (Game ${selectedGame.id}): Parsed Values - finalChips: ${parseNumericField(player.finalChips)}, netFromFinal: ${parseNumericField(player.netValueFromFinalChips)}, liveChips: ${parseNumericField(player.chips)}, totalInvested: ${parseNumericField(player.totalInvested)}`);
-        });
-      }
-
       const stats: PlayerInGameStats[] = selectedGame.players.map(player => {
         const pName = player.name || "Unknown Player";
         const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
@@ -137,19 +127,10 @@ export function DashboardClient() {
 
         if (typeof pNetFromFinal === 'number') {
           netVal = pNetFromFinal;
-          //  if (process.env.NODE_ENV === 'development') {
-          //   console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using netValueFromFinalChips (${typeof pNetFromFinal}): ${netVal}`);
-          // }
         } else if (typeof pFinalChips === 'number') {
           netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          // if (process.env.NODE_ENV === 'development') {
-          //   console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using finalChips (${typeof pFinalChips}): ${pFinalChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
-          // }
         } else { 
           netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          // if (process.env.NODE_ENV === 'development') {
-          //   console.log(`Dashboard Game Stats for ${pName} (Game ${selectedGame.id}): Using live chips (${typeof pLiveChips}): ${pLiveChips}, Invested: ${pTotalInvested}, Calculated Net: ${netVal}`);
-          // }
         }
         
         return {
@@ -188,6 +169,21 @@ export function DashboardClient() {
       setIsLoadingLifetimeStats(false);
     }
   };
+  
+  const allPlayerNamesForChart = React.useMemo(() => {
+    if (games.length === 0) return [];
+    const playerNames = new Set<string>();
+    games.forEach(game => {
+      if (Array.isArray(game.players)) {
+        game.players.forEach(player => {
+          if (player && typeof player.name === 'string') {
+            playerNames.add(player.name);
+          }
+        });
+      }
+    });
+    return Array.from(playerNames).sort().map(name => ({ playerName: name }));
+  }, [games]);
 
 
   if (isLoadingGames) {
@@ -239,6 +235,18 @@ export function DashboardClient() {
         </CardContent>
       </Card>
 
+      {/* Player Game-by-Game Performance Chart (Publicly Visible) */}
+      {games.length > 0 && allPlayerNamesForChart.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>Player Game-by-Game Performance</CardTitle>
+            <CardDescription>Select a player to view their net win/loss for each game.</CardDescription>
+          </CardHeader>
+          <CardContent>
+             <LifetimeStatsChart stats={allPlayerNamesForChart} allGamesData={games} />
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <Card>
@@ -262,7 +270,7 @@ export function DashboardClient() {
         <Card>
           <CardHeader>
              <CardTitle className="flex items-center"><TrendingUp className="mr-2 h-5 w-5 text-primary"/>Lifetime Player Stats</CardTitle> 
-             <CardDescription>Aggregated performance summary. Requires authentication.</CardDescription>
+             <CardDescription>Aggregated performance summary. Requires authentication to view.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {!areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && (
@@ -294,18 +302,8 @@ export function DashboardClient() {
           </CardContent>
         </Card>
       </div>
-      
-      {areLifetimeStatsVisible && !isLoadingLifetimeStats && !lifetimeStatsError && apiLifetimeStats.length > 0 && games.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center"><LineChart className="mr-2 h-5 w-5 text-primary"/>Player Game-by-Game Performance</CardTitle>
-            <CardDescription>Select a player to view their net win/loss for each game.</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <LifetimeStatsChart stats={apiLifetimeStats} allGamesData={games} />
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
+
+    

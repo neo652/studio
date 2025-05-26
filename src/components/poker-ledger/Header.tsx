@@ -67,7 +67,7 @@ export function Header({ pageType = 'main' }: HeaderProps) {
                     <Info size={14} className="mr-1 text-primary"/> {gameStatusText}
                 </div>
                 <div className="flex items-center space-x-2 flex-wrap justify-center sm:justify-end gap-y-2">
-                  <Link href="/dashboard" passHref>
+                  <Link href="/dashboard" passHref prefetch={false}>
                       <Button variant="outline" title="View Dashboard" disabled={isSyncing}>
                       <LayoutDashboard className="mr-2 h-4 w-4" />
                       Dashboard

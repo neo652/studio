@@ -17,7 +17,7 @@ export default function PokerLedgerPage() {
             <Header pageType="main" /> {/* Explicitly set pageType for clarity */}
             <main className="mt-8">
               <Tabs defaultValue="playerManagement" className="w-full">
-                <TabsList className="grid w-full grid-cols-3 mb-6">
+                <TabsList className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
                   <TabsTrigger value="playerManagement">Player Management</TabsTrigger>
                   <TabsTrigger value="transactionLogs">Transaction Log</TabsTrigger>
                   <TabsTrigger value="payoutCalculator">Final Payouts</TabsTrigger>
@@ -60,7 +60,7 @@ function AppSkeleton() {
       </header>
       <main className="mt-8">
         {/* Tab Triggers Skeleton */}
-        <div className="grid w-full grid-cols-3 gap-2 mb-6">
+        <div className="grid w-full grid-cols-1 sm:grid-cols-3 gap-2 mb-6">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />

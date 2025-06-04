@@ -6,6 +6,7 @@ import { TransactionLogs } from "@/components/poker-ledger/TransactionLogs";
 import { PayoutCalculator } from "@/components/poker-ledger/PayoutCalculator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ClientOnly } from "@/components/ClientOnly"; // To prevent hydration errors with localStorage access
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function PokerLedgerPage() {
   return (
@@ -14,14 +15,23 @@ export default function PokerLedgerPage() {
         <div className="min-h-screen flex flex-col">
           <div className="container mx-auto px-4 py-8 flex-grow">
             <Header pageType="main" /> {/* Explicitly set pageType for clarity */}
-            <main className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-              <div className="lg:col-span-2 space-y-6 lg:space-y-8">
-                <PlayerManagement />
-                <TransactionLogs />
-              </div>
-              <div className="lg:col-span-1">
-                <PayoutCalculator />
-              </div>
+            <main className="mt-8">
+              <Tabs defaultValue="playerManagement" className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-6">
+                  <TabsTrigger value="playerManagement">Player Management</TabsTrigger>
+                  <TabsTrigger value="transactionLogs">Transaction Log</TabsTrigger>
+                  <TabsTrigger value="payoutCalculator">Final Payouts</TabsTrigger>
+                </TabsList>
+                <TabsContent value="playerManagement">
+                  <PlayerManagement />
+                </TabsContent>
+                <TabsContent value="transactionLogs">
+                  <TransactionLogs />
+                </TabsContent>
+                <TabsContent value="payoutCalculator">
+                  <PayoutCalculator />
+                </TabsContent>
+              </Tabs>
             </main>
           </div>
           <footer className="text-center p-4 text-sm text-muted-foreground border-t">
@@ -48,25 +58,17 @@ function AppSkeleton() {
             <Skeleton className="h-10 w-32" /> {/* New Game */}
          </div>
       </header>
-      <main className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        <div className="lg:col-span-2 space-y-6 lg:space-y-8">
-          {/* Player Management Skeleton */}
-          <div>
-            <Skeleton className="h-12 w-1/2 mb-4" />
-            <Skeleton className="h-64 w-full" />
-          </div>
-          {/* Transaction Logs Skeleton */}
-          <div>
-            <Skeleton className="h-12 w-1/2 mb-4" />
-            <Skeleton className="h-64 w-full" />
-          </div>
+      <main className="mt-8">
+        {/* Tab Triggers Skeleton */}
+        <div className="grid w-full grid-cols-3 gap-2 mb-6">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
         </div>
-        <div className="lg:col-span-1">
-          {/* Payout Calculator Skeleton */}
-          <div>
-            <Skeleton className="h-12 w-full mb-4" />
-            <Skeleton className="h-80 w-full" />
-          </div>
+        {/* Tab Content Area Skeleton */}
+        <div>
+          <Skeleton className="h-12 w-1/2 mb-4" /> {/* Placeholder for section title within content */}
+          <Skeleton className="h-[400px] w-full" /> {/* Placeholder for section content */}
         </div>
       </main>
     </div>

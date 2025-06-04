@@ -277,7 +277,7 @@ export function PayoutCalculator() {
       <CardHeader>
         <div className="flex items-center space-x-2">
           <Landmark className="h-6 w-6 text-primary" />
-          <CardTitle>Final Payouts & Settlement</CardTitle>
+          <CardTitle>Final Payouts</CardTitle>
         </div>
         <CardDescription>
           {/* Description removed as per user request */}

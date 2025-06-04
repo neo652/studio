@@ -280,7 +280,7 @@ export function PayoutCalculator() {
           <CardTitle>Final Payouts & Settlement</CardTitle>
         </div>
         <CardDescription>
-          Calculate final net values and player-to-player settlements.
+          {/* Description removed as per user request */}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -308,7 +308,7 @@ export function PayoutCalculator() {
           <>
             <h3 className="text-lg font-semibold mb-2">Player Net Results</h3>
             
-            <div className="mb-6"> {/* Removed ScrollArea and fixed height */}
+            <div className="mb-6">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -348,7 +348,7 @@ export function PayoutCalculator() {
             {derivedPayoutData.settlements.length > 0 && (
               <>
                 <h3 className="text-lg font-semibold mb-2 mt-4">Settlement Transactions (Who Pays Whom)</h3>
-                 <div> {/* Removed ScrollArea and fixed height */}
+                 <div> 
                   <Table>
                     <TableHeader>
                       <TableRow>

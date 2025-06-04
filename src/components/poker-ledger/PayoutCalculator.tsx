@@ -59,15 +59,21 @@ export function PayoutCalculator() {
     if (CHIP_INPUT_REGEX.test(currentDisplayValue)) { // Valid integer string or empty
       finalNumericValueForContext = currentDisplayValue === "" ? 0 : parseInt(currentDisplayValue, 10);
       
-      const finalVal = roundTo(finalNumericValueForContext * FIXED_CHIP_VALUE_INR, 2);
-      calculatedNetAmountForContext = roundTo(finalVal - playerFromContext.totalInvested, 2);
+      const finalChipValueOfInput = roundTo(finalNumericValueForContext * FIXED_CHIP_VALUE_INR, 2);
+      const playerTotalInvested = playerFromContext.totalInvested;
+
+      if (playerTotalInvested < 0) {
+        calculatedNetAmountForContext = roundTo(finalChipValueOfInput + playerTotalInvested, 2);
+      } else {
+        calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
+      }
       
       if (process.env.NODE_ENV === 'development') {
         console.log(`PayoutCalc onChange Debug for ${playerFromContext.name} (ID: ${playerId}):
           - Input Display Value: "${currentDisplayValue}"
           - Parsed Final Chips (numeric): ${finalNumericValueForContext}
           - Player Total Invested (context): ${playerFromContext.totalInvested}
-          - Calculated Net Amount: ${calculatedNetAmountForContext}`);
+          - Calculated Net Amount (new logic): ${calculatedNetAmountForContext}`);
       }
       updatePlayerFinalStats(playerId, finalNumericValueForContext, calculatedNetAmountForContext);
 
@@ -109,47 +115,51 @@ export function PayoutCalculator() {
     setInputStrings(prev => ({ ...prev, [playerId]: finalStringForDisplay }));
 
     // Calculate net amount based on this finalized numeric value
-    const finalVal = roundTo(finalNumericValueForContext * FIXED_CHIP_VALUE_INR, 2);
-    calculatedNetAmountForContext = roundTo(finalVal - playerFromContext.totalInvested, 2);
+    const finalChipValueOfInput = roundTo(finalNumericValueForContext * FIXED_CHIP_VALUE_INR, 2);
+    const playerTotalInvested = playerFromContext.totalInvested;
+
+    if (playerTotalInvested < 0) {
+      calculatedNetAmountForContext = roundTo(finalChipValueOfInput + playerTotalInvested, 2);
+    } else {
+      calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
+    }
 
     if (process.env.NODE_ENV === 'development') {
         console.log(`PayoutCalc onBlur Debug for ${playerFromContext.name} (ID: ${playerId}):
           - Original Input: "${currentDisplayValue}", Finalized String: "${finalStringForDisplay}"
           - Final Chips (numeric): ${finalNumericValueForContext}
-          - Player Total Invested (context): ${playerFromContext.totalInvested}
-          - Calculated Net Amount: ${calculatedNetAmountForContext}`);
+          - Player Total Invested (context): ${playerTotalInvested}
+          - Calculated Net Amount (new logic): ${calculatedNetAmountForContext}`);
     }
     // Persist the potentially corrected/defaulted value to context
-    // This ensures if an invalid value was typed and blurred, context gets the reset (0)
     updatePlayerFinalStats(playerId, finalNumericValueForContext, calculatedNetAmountForContext);
   };
 
 
   const derivedPayoutData = useMemo(() => {
-    // Calculations should use the numeric values reflected in the context,
-    // or if we want immediate reflection of inputStrings, parse them here.
-    // For consistency with what's saved, using contextPlayers is better.
-    // The inputStrings are primarily for driving the input field's display.
-    
     const playersWithCalculations: PayoutPlayerDisplay[] = contextPlayers.map(player => {
       const finalChipsFromContext = typeof player.finalChips === 'number' ? player.finalChips : 0;
-      // If netValueFromFinalChips is already calculated and stored in context, use it. Otherwise, calculate.
-      // This ensures that what's displayed as "Net (₹)" matches what's stored/calculated from context.
+      const finalChipValueForDisplay = roundTo(finalChipsFromContext * FIXED_CHIP_VALUE_INR, 2);
+      const playerTotalInvested = player.totalInvested;
+      
       let netAmount: number;
       if (typeof player.netValueFromFinalChips === 'number') {
-        netAmount = player.netValueFromFinalChips;
+        netAmount = player.netValueFromFinalChips; // This uses the value calculated by handlers with new logic
       } else {
-        const finalValue = roundTo(finalChipsFromContext * FIXED_CHIP_VALUE_INR, 2);
-        netAmount = roundTo(finalValue - player.totalInvested, 2);
+        // Fallback calculation, also use new logic
+        if (playerTotalInvested < 0) {
+          netAmount = roundTo(finalChipValueForDisplay + playerTotalInvested, 2);
+        } else {
+          netAmount = roundTo(finalChipValueForDisplay - playerTotalInvested, 2);
+        }
       }
-      const finalValueDisplay = roundTo(finalChipsFromContext * FIXED_CHIP_VALUE_INR, 2);
 
       return {
         id: player.id,
         name: player.name,
         totalInvested: player.totalInvested,
-        finalChipsInput: finalChipsFromContext, // Use the context's finalChips
-        finalValue: finalValueDisplay,
+        finalChipsInput: finalChipsFromContext, 
+        finalValue: finalChipValueForDisplay,
         netAmount: netAmount,
       };
     }).sort((a, b) => {
@@ -212,7 +222,7 @@ export function PayoutCalculator() {
       calculatedPlayers: playersWithCalculations,
       settlements,
     };
-  }, [contextPlayers, totalPot]); // inputStrings removed as derivedPayoutData now primarily reflects context for consistency
+  }, [contextPlayers, totalPot]); 
 
 
   const getReconciliationMessages = () => {

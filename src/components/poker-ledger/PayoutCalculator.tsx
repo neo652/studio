@@ -229,8 +229,9 @@ export function PayoutCalculator() {
       totalActualChipsInPlay,
       expectedTotalChips,
       chipDiscrepancy,
-      valueOfActualChips,
-      monetaryDiscrepancy,
+      valueOfActualChips, // Kept for potential future use or debugging, but not displayed
+      monetaryDiscrepancy, // Kept for potential future use or debugging, but not displayed
+      settlements
     } = derivedPayoutData;
 
     if (contextPlayers.length === 0) {
@@ -257,28 +258,19 @@ export function PayoutCalculator() {
       chipStatusClass = "text-red-500";
     }
 
-    let valueStatusMessage = "";
-    let valueStatusClass = "";
-    if (monetaryDiscrepancy === 0) {
-      valueStatusMessage = "Reconciled";
-    } else if (monetaryDiscrepancy > 0) {
-      valueStatusMessage = `Surplus: ${monetaryDiscrepancy.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`;
-      valueStatusClass = "text-orange-500";
-    } else { // monetaryDiscrepancy < 0
-      valueStatusMessage = `Shortage: ${Math.abs(monetaryDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`;
-      valueStatusClass = "text-red-500";
+    let settlementGuidance = null;
+    if (chipDiscrepancy !== 0 && settlements.length > 0 && (totalPot > 0 || totalActualChipsInPlay > 0)) {
+      settlementGuidance = <p className="text-xs text-orange-500">Chip discrepancy exists. Settlements shown are based on current inputs.</p>;
     }
 
+
     return (
-      <div className="space-y-0.5 text-xs text-muted-foreground min-h-[32px]"> {/* Adjusted min-h */}
+      <div className="space-y-0.5 text-xs text-muted-foreground">
         <p>
           Chips: Exp. <strong>{expectedTotalChips.toLocaleString('en-IN')}</strong> | Act. <strong>{totalActualChipsInPlay.toLocaleString('en-IN')}</strong>
           {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${chipStatusClass}`}>({chipStatusMessage})</span>}
         </p>
-        <p>
-          Value: Exp. <strong>{totalPot.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong> | Act. <strong>{valueOfActualChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong>
-          {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${valueStatusClass}`}>({valueStatusMessage})</span>}
-        </p>
+        {settlementGuidance}
       </div>
     );
   };

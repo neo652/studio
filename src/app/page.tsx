@@ -17,7 +17,7 @@ export default function PokerLedgerPage() {
             <Header pageType="main" /> {/* Explicitly set pageType for clarity */}
             <main className="mt-8">
               <Tabs defaultValue="playerManagement" className="w-full">
-                <TabsList className="flex flex-col w-full gap-2 mb-6 sm:flex-row sm:bg-muted sm:p-1 sm:rounded-md sm:h-10">
+                <TabsList className="mb-6 flex w-full flex-col gap-1 rounded-md bg-muted p-1 sm:h-10 sm:flex-row">
                   <TabsTrigger value="playerManagement" className="w-full sm:w-auto">Player Management</TabsTrigger>
                   <TabsTrigger value="payoutCalculator" className="w-full sm:w-auto">Final Payouts</TabsTrigger>
                   <TabsTrigger value="transactionLogs" className="w-full sm:w-auto">Transaction Log</TabsTrigger>
@@ -60,10 +60,10 @@ function AppSkeleton() {
       </header>
       <main className="mt-8">
         {/* Tab Triggers Skeleton */}
-        <div className="flex flex-col w-full gap-2 mb-6 sm:flex-row sm:h-10 sm:bg-muted sm:p-1 sm:rounded-md">
-          <Skeleton className="h-10 w-full sm:flex-1" /> {/* Player Management */}
-          <Skeleton className="h-10 w-full sm:flex-1" /> {/* Final Payouts */}
-          <Skeleton className="h-10 w-full sm:flex-1" /> {/* Transaction Log */}
+        <div className="mb-6 flex w-full flex-col gap-1 rounded-md bg-muted p-1 sm:h-10 sm:flex-row">
+          <Skeleton className="h-8 w-full rounded-sm bg-background sm:h-full sm:flex-1" /> {/* Player Management */}
+          <Skeleton className="h-8 w-full rounded-sm bg-background sm:h-full sm:flex-1" /> {/* Final Payouts */}
+          <Skeleton className="h-8 w-full rounded-sm bg-background sm:h-full sm:flex-1" /> {/* Transaction Log */}
         </div>
         {/* Tab Content Area Skeleton */}
         <div>

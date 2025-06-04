@@ -114,19 +114,19 @@ export function PlayerManagement() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="text-right">Chips</TableHead>
-                <TableHead className="text-right hidden sm:table-cell">Invested</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="px-2 sm:px-4">Name</TableHead>
+                <TableHead className="text-right px-2 sm:px-4">Chips</TableHead>
+                <TableHead className="text-right hidden sm:table-cell px-2 sm:px-4">Invested</TableHead>
+                <TableHead className="text-right px-2 sm:px-4">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {players.map((player) => (
                 <TableRow key={player.id} className="table-row-hover">
-                  <TableCell className="font-medium">{player.name}</TableCell>
-                  <TableCell className="text-right">{player.chips.toLocaleString()}</TableCell>
-                  <TableCell className="text-right hidden sm:table-cell">{player.totalInvested.toLocaleString()}</TableCell>
-                  <TableCell className="text-right space-x-1">
+                  <TableCell className="font-medium py-2 px-2 sm:px-4">{player.name}</TableCell>
+                  <TableCell className="text-right py-2 px-2 sm:px-4">{player.chips.toLocaleString()}</TableCell>
+                  <TableCell className="text-right hidden sm:table-cell py-2 px-2 sm:px-4">{player.totalInvested.toLocaleString()}</TableCell>
+                  <TableCell className="text-right space-x-0 sm:space-x-1 py-2 px-2 sm:px-4">
                     <Button variant="ghost" size="icon" onClick={() => openTransactionDialog(player, 'rebuy')} title="Rebuy">
                       <Repeat className="h-4 w-4 text-green-500" />
                     </Button>

@@ -20,15 +20,15 @@ export function GameStatsTable({ stats }: GameStatsTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Player</TableHead>
-            <TableHead className="text-right">Net Value (₹)</TableHead>
+            <TableHead className="px-2 sm:px-4">Player</TableHead>
+            <TableHead className="text-right px-2 sm:px-4">Net Value (₹)</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {stats.map((playerStat) => (
             <TableRow key={playerStat.playerName} className="table-row-hover">
-              <TableCell className="font-medium">{playerStat.playerName}</TableCell>
-              <TableCell className={`text-right font-semibold ${playerStat.netValue >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+              <TableCell className="font-medium py-2 px-2 sm:px-4">{playerStat.playerName}</TableCell>
+              <TableCell className={`text-right font-semibold py-2 px-2 sm:px-4 ${playerStat.netValue >= 0 ? 'text-green-500' : 'text-destructive'}`}>
                 {playerStat.netValue.toLocaleString()}
               </TableCell>
             </TableRow>

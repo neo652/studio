@@ -309,18 +309,18 @@ export function PayoutCalculator() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Player</TableHead>
-                    <TableHead className="text-right w-28 sm:w-32">Final Chips</TableHead>
-                    <TableHead className="text-right hidden sm:table-cell">Invested (₹)</TableHead>
-                    <TableHead className="text-right hidden md:table-cell">Final Value (₹)</TableHead>
-                    <TableHead className="text-right">Net (₹)</TableHead>
+                    <TableHead className="py-2 px-2 sm:px-4">Player</TableHead>
+                    <TableHead className="text-right w-28 sm:w-32 py-2 px-2 sm:px-4">Final Chips</TableHead>
+                    <TableHead className="text-right hidden sm:table-cell py-2 px-2 sm:px-4">Invested (₹)</TableHead>
+                    <TableHead className="text-right hidden md:table-cell py-2 px-2 sm:px-4">Final Value (₹)</TableHead>
+                    <TableHead className="text-right py-2 px-2 sm:px-4">Net (₹)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {derivedPayoutData.calculatedPlayers.map((player) => (
                     <TableRow key={player.id} className="table-row-hover">
-                      <TableCell className="font-medium py-2">{player.name}</TableCell>
-                      <TableCell className="text-right py-2">
+                      <TableCell className="font-medium py-2 px-2 sm:px-4">{player.name}</TableCell>
+                      <TableCell className="text-right py-2 px-2 sm:px-4">
                         <Input
                           type="text"
                           value={inputStrings[player.id] ?? ""}
@@ -331,9 +331,9 @@ export function PayoutCalculator() {
                           placeholder=""
                         />
                       </TableCell>
-                      <TableCell className="text-right hidden sm:table-cell py-2">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
-                      <TableCell className="text-right hidden md:table-cell py-2">{player.finalValue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
-                      <TableCell className={`text-right font-semibold py-2 ${player.netAmount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
+                      <TableCell className="text-right hidden sm:table-cell py-2 px-2 sm:px-4">{player.totalInvested.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
+                      <TableCell className="text-right hidden md:table-cell py-2 px-2 sm:px-4">{player.finalValue.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</TableCell>
+                      <TableCell className={`text-right font-semibold py-2 px-2 sm:px-4 ${player.netAmount >= 0 ? 'text-green-500' : 'text-destructive'}`}>
                         {player.netAmount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                       </TableCell>
                     </TableRow>
@@ -349,17 +349,17 @@ export function PayoutCalculator() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>From Player</TableHead>
-                        <TableHead>To Player</TableHead>
-                        <TableHead className="text-right">Amount (₹)</TableHead>
+                        <TableHead className="py-2 px-2 sm:px-4">From Player</TableHead>
+                        <TableHead className="py-2 px-2 sm:px-4">To Player</TableHead>
+                        <TableHead className="text-right py-2 px-2 sm:px-4">Amount (₹)</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {derivedPayoutData.settlements.map((payment) => (
                         <TableRow key={payment.id} className="table-row-hover">
-                          <TableCell className="py-2">{payment.fromPlayerName}</TableCell>
-                          <TableCell className="py-2">{payment.toPlayerName}</TableCell>
-                          <TableCell className="text-right font-medium py-2">
+                          <TableCell className="py-2 px-2 sm:px-4">{payment.fromPlayerName}</TableCell>
+                          <TableCell className="py-2 px-2 sm:px-4">{payment.toPlayerName}</TableCell>
+                          <TableCell className="text-right font-medium py-2 px-2 sm:px-4">
                             {payment.amount.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
                           </TableCell>
                         </TableRow>

@@ -55,8 +55,8 @@ export function Header({ pageType = 'main' }: HeaderProps) {
     <>
       <header className="flex flex-col sm:flex-row justify-between items-center pb-6 border-b-2 border-primary">
         <div className="flex items-center space-x-3 mb-4 sm:mb-0">
-          <VenetianMask className="h-10 w-10 text-primary" />
-          <h1 className="text-4xl font-bold text-primary">
+          <VenetianMask className="h-8 w-8 sm:h-10 sm:w-10 text-primary" />
+          <h1 className="text-2xl sm:text-4xl font-bold text-primary">
             {pageType === 'dashboard' ? 'Poker Ledger Dashboard' : 'Poker Ledger'}
           </h1>
         </div>

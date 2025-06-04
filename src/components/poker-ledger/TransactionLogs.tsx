@@ -48,28 +48,28 @@ export function TransactionLogs() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="hidden md:table-cell">Timestamp</TableHead>
-                  <TableHead>Player</TableHead>
-                  <TableHead>Action</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead className="text-right">New Balance</TableHead>
+                  <TableHead className="hidden md:table-cell px-2 sm:px-4">Timestamp</TableHead>
+                  <TableHead className="px-2 sm:px-4">Player</TableHead>
+                  <TableHead className="px-2 sm:px-4">Action</TableHead>
+                  <TableHead className="text-right px-2 sm:px-4">Amount</TableHead>
+                  <TableHead className="text-right px-2 sm:px-4">New Balance</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {transactions.map((transaction) => (
                   <TableRow key={transaction.id} className="table-row-hover">
-                    <TableCell className="text-muted-foreground text-xs hidden md:table-cell">{formatTimestamp(transaction.timestamp)}</TableCell>
-                    <TableCell>{transaction.playerName}</TableCell>
-                    <TableCell>
+                    <TableCell className="text-muted-foreground text-xs hidden md:table-cell py-2 px-2 sm:px-4">{formatTimestamp(transaction.timestamp)}</TableCell>
+                    <TableCell className="py-2 px-2 sm:px-4">{transaction.playerName}</TableCell>
+                    <TableCell className="py-2 px-2 sm:px-4">
                        <Badge variant={getTransactionTypeBadgeVariant(transaction.type)} className="capitalize">
                         {transaction.type.replace('_', ' ')}
                        </Badge>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right py-2 px-2 sm:px-4">
                       {transaction.type === 'cut' || (transaction.type === 'payout_adjustment' && transaction.amount < 0) ? '-' : ''}
                       {Math.abs(transaction.amount).toLocaleString()}
                     </TableCell>
-                    <TableCell className="text-right">{transaction.balanceAfter.toLocaleString()}</TableCell>
+                    <TableCell className="text-right py-2 px-2 sm:px-4">{transaction.balanceAfter.toLocaleString()}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

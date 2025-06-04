@@ -19,17 +19,17 @@ export default function PokerLedgerPage() {
               <Tabs defaultValue="playerManagement" className="w-full">
                 <TabsList className="flex flex-col w-full gap-2 mb-6 sm:flex-row sm:bg-muted sm:p-1 sm:rounded-md sm:h-10">
                   <TabsTrigger value="playerManagement" className="w-full sm:w-auto">Player Management</TabsTrigger>
-                  <TabsTrigger value="transactionLogs" className="w-full sm:w-auto">Transaction Log</TabsTrigger>
                   <TabsTrigger value="payoutCalculator" className="w-full sm:w-auto">Final Payouts</TabsTrigger>
+                  <TabsTrigger value="transactionLogs" className="w-full sm:w-auto">Transaction Log</TabsTrigger>
                 </TabsList>
                 <TabsContent value="playerManagement">
                   <PlayerManagement />
                 </TabsContent>
-                <TabsContent value="transactionLogs">
-                  <TransactionLogs />
-                </TabsContent>
                 <TabsContent value="payoutCalculator">
                   <PayoutCalculator />
+                </TabsContent>
+                <TabsContent value="transactionLogs">
+                  <TransactionLogs />
                 </TabsContent>
               </Tabs>
             </main>
@@ -61,9 +61,9 @@ function AppSkeleton() {
       <main className="mt-8">
         {/* Tab Triggers Skeleton */}
         <div className="flex flex-col w-full gap-2 mb-6 sm:flex-row sm:h-10 sm:bg-muted sm:p-1 sm:rounded-md">
-          <Skeleton className="h-10 w-full sm:flex-1" />
-          <Skeleton className="h-10 w-full sm:flex-1" />
-          <Skeleton className="h-10 w-full sm:flex-1" />
+          <Skeleton className="h-10 w-full sm:flex-1" /> {/* Player Management */}
+          <Skeleton className="h-10 w-full sm:flex-1" /> {/* Final Payouts */}
+          <Skeleton className="h-10 w-full sm:flex-1" /> {/* Transaction Log */}
         </div>
         {/* Tab Content Area Skeleton */}
         <div>

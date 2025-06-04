@@ -190,8 +190,7 @@ export const PokerLedgerProvider = ({ children }: { children: ReactNode }) => {
         player.totalInvested += amount;
       } else if (type === 'cut') {
         player.chips -= amount; // Allow chips to go negative
-        // Player's total invested decreases, but not below zero
-        player.totalInvested = Math.max(0, player.totalInvested - amount);
+        player.totalInvested -= amount; // Allow totalInvested to go negative
       }
 
       // Reset final chip stats as live chips have changed

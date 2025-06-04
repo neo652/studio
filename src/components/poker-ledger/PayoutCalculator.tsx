@@ -156,7 +156,7 @@ export function PayoutCalculator() {
       return {
         id: player.id,
         name: player.name,
-        totalInvested: player.totalInvested,
+        totalInvested: playerTotalInvested,
         finalChipsInput: finalChipsFromContext, 
         finalValue: finalChipValueForDisplay,
         netAmount: netAmount,
@@ -200,7 +200,7 @@ export function PayoutCalculator() {
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
           toPlayerName: creditor.name,
-          amount: roundTo(amountToTransfer / 2, 2), // Amount is already net value, no need to halve for PokerLedger
+          amount: roundTo(amountToTransfer, 2), 
         });
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
@@ -267,6 +267,7 @@ export function PayoutCalculator() {
           Chips: Exp. <strong>{expectedTotalChips.toLocaleString('en-IN')}</strong> | Act. <strong>{totalActualChipsInPlay.toLocaleString('en-IN')}</strong>
           {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${chipStatusClass}`}>({chipStatusMessage})</span>}
         </p>
+        {/* Removed Value reconciliation line as requested */}
         {settlementGuidance}
       </div>
     );
@@ -330,7 +331,7 @@ export function PayoutCalculator() {
                           onBlur={() => handleFinalChipInputBlur(player.id)}
                           onChange={(e) => handleChipDisplayChange(player.id, e.target.value)}
                           id={`finalChips-${player.id}`}
-                          className="h-8 text-right w-full"
+                          className="h-9 text-right w-full"
                           placeholder=""
                         />
                       </TableCell>

@@ -200,7 +200,7 @@ export function PayoutCalculator() {
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
           toPlayerName: creditor.name,
-          amount: roundTo(amountToTransfer / 2, 2),
+          amount: roundTo(amountToTransfer / 2, 2), // Amount is already net value, no need to halve for PokerLedger
         });
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
@@ -229,8 +229,6 @@ export function PayoutCalculator() {
       totalActualChipsInPlay,
       expectedTotalChips,
       chipDiscrepancy,
-      valueOfActualChips, // Kept for potential future use or debugging, but not displayed
-      monetaryDiscrepancy, // Kept for potential future use or debugging, but not displayed
       settlements
     } = derivedPayoutData;
 
@@ -263,7 +261,6 @@ export function PayoutCalculator() {
       settlementGuidance = <p className="text-xs text-orange-500">Chip discrepancy exists. Settlements shown are based on current inputs.</p>;
     }
 
-
     return (
       <div className="space-y-0.5 text-xs text-muted-foreground">
         <p>
@@ -282,7 +279,9 @@ export function PayoutCalculator() {
           <Landmark className="h-6 w-6 text-primary" />
           <CardTitle>Final Payouts & Settlement</CardTitle>
         </div>
-        <CardDescription>Enter final chip counts for net values and settlement. (Chip Value: ₹{FIXED_CHIP_VALUE_INR.toFixed(2)})</CardDescription>
+        <CardDescription>
+          Calculate final net values and player-to-player settlements.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div className="mb-6 p-4 border rounded-lg bg-card/50 space-y-2">

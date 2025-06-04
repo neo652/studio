@@ -269,10 +269,8 @@ export function PayoutCalculator() {
       valueStatusClass = "text-red-500";
     }
 
-    const showSettlementGuidance = totalActualChipsInPlay > 0 && derivedPayoutData.settlements.length > 0;
-
     return (
-      <div className="space-y-0.5 text-xs text-muted-foreground min-h-[48px]">
+      <div className="space-y-0.5 text-xs text-muted-foreground min-h-[32px]"> {/* Adjusted min-h */}
         <p>
           Chips: Exp. <strong>{expectedTotalChips.toLocaleString('en-IN')}</strong> | Act. <strong>{totalActualChipsInPlay.toLocaleString('en-IN')}</strong>
           {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${chipStatusClass}`}>({chipStatusMessage})</span>}
@@ -281,9 +279,6 @@ export function PayoutCalculator() {
           Value: Exp. <strong>{totalPot.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong> | Act. <strong>{valueOfActualChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong>
           {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${valueStatusClass}`}>({valueStatusMessage})</span>}
         </p>
-        {showSettlementGuidance && 
-          <p className="mt-1 text-xs">Settlements below use fixed chip value (amounts halved for convenience).</p>
-        }
       </div>
     );
   };
@@ -321,9 +316,7 @@ export function PayoutCalculator() {
         ) : (
           <>
             <h3 className="text-lg font-semibold mb-2">Player Net Results</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              * Edit final chip counts below. Final Value and Net are based on fixed chip value of ₹{FIXED_CHIP_VALUE_INR.toFixed(2)}.
-            </p>
+            
             <div className="mb-6"> {/* Removed ScrollArea and fixed height */}
               <Table>
                 <TableHeader>

@@ -262,7 +262,6 @@ export function PayoutCalculator() {
 
     return (
         <div className="space-y-0.5 text-xs text-muted-foreground min-h-[64px]">
-            <p>Fixed Value Per Chip for these calculations: {FIXED_CHIP_VALUE_INR.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}.</p>
             {(totalPot > 0 || totalActualChipsInPlay > 0) && (
               <>
                 <p>Expected Total Chips (from Pot @ fixed value): {expectedTotalChips.toLocaleString('en-IN')}.</p>
@@ -286,7 +285,7 @@ export function PayoutCalculator() {
           <Landmark className="h-6 w-6 text-primary" />
           <CardTitle>Final Payouts & Settlement</CardTitle>
         </div>
-        <CardDescription>Enter final chip counts. Payouts are calculated based on a fixed chip value of ₹{FIXED_CHIP_VALUE_INR.toFixed(2)} per chip. These final chip counts and net values will be saved with the game.</CardDescription>
+        <CardDescription>Enter final chip counts to calculate net values and settlement transactions.</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="mb-6 p-4 border rounded-lg bg-card/50 space-y-2">

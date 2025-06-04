@@ -119,10 +119,10 @@ export function PayoutCalculator() {
     const playerTotalInvested = playerFromContext.totalInvested;
 
     if (playerTotalInvested < 0) {
-      calculatedNetAmountForContext = roundTo(finalChipValueOfInput + playerTotalInvested, 2);
-    } else {
-      calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
-    }
+        calculatedNetAmountForContext = roundTo(finalChipValueOfInput + playerTotalInvested, 2);
+      } else {
+        calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
+      }
 
     if (process.env.NODE_ENV === 'development') {
         console.log(`PayoutCalc onBlur Debug for ${playerFromContext.name} (ID: ${playerId}):
@@ -144,9 +144,8 @@ export function PayoutCalculator() {
       
       let netAmount: number;
       if (typeof player.netValueFromFinalChips === 'number') {
-        netAmount = player.netValueFromFinalChips; // This uses the value calculated by handlers with new logic
+        netAmount = player.netValueFromFinalChips; 
       } else {
-        // Fallback calculation, also use new logic
         if (playerTotalInvested < 0) {
           netAmount = roundTo(finalChipValueForDisplay + playerTotalInvested, 2);
         } else {
@@ -231,50 +230,61 @@ export function PayoutCalculator() {
       expectedTotalChips,
       chipDiscrepancy,
       valueOfActualChips,
-      monetaryDiscrepancy
+      monetaryDiscrepancy,
     } = derivedPayoutData;
 
-    if (contextPlayers.length === 0){
-        return <p className="text-xs text-muted-foreground">Add players to start.</p>;
+    if (contextPlayers.length === 0) {
+      return <p className="text-xs text-muted-foreground">Add players to start.</p>;
     }
 
-    let discrepancyChipMessage = "";
-    if (totalActualChipsInPlay > 0 || totalPot > 0) { 
-        if (chipDiscrepancy === 0 && totalActualChipsInPlay === expectedTotalChips) {
-            discrepancyChipMessage = "Chip counts reconcile with expected total chips.";
-        } else if (chipDiscrepancy > 0) {
-            discrepancyChipMessage = `Chip Surplus: ${chipDiscrepancy.toLocaleString('en-IN')} more chips entered than expected.`;
-        } else {
-            discrepancyChipMessage = `Chip Shortage: ${Math.abs(chipDiscrepancy).toLocaleString('en-IN')} fewer chips entered than expected.`;
-        }
+    if (totalActualChipsInPlay === 0 && totalPot === 0) {
+      return <p className="text-xs text-muted-foreground">Enter final chip counts. Total pot is ₹0.00.</p>;
+    }
+    
+    if (totalActualChipsInPlay === 0 && totalPot > 0) {
+        return <p className="text-xs text-muted-foreground">Enter final chip counts to reconcile with the {totalPot.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} pot.</p>;
     }
 
-    let discrepancyMonetaryMessage = "";
-     if (totalActualChipsInPlay > 0 || totalPot > 0) { 
-        if (monetaryDiscrepancy === 0 && valueOfActualChips === totalPot) {
-            discrepancyMonetaryMessage = "Value of actual chips reconciles with total pot.";
-        } else if (monetaryDiscrepancy > 0) {
-            discrepancyMonetaryMessage = `Value Surplus: ${monetaryDiscrepancy.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} more in chip value than pot.`;
-        } else {
-            discrepancyMonetaryMessage = `Value Shortage: ${Math.abs(monetaryDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })} less in chip value than pot.`;
-        }
+    let chipStatusMessage = "";
+    let chipStatusClass = "";
+    if (chipDiscrepancy === 0) {
+      chipStatusMessage = "Reconciled";
+    } else if (chipDiscrepancy > 0) {
+      chipStatusMessage = `Surplus: ${chipDiscrepancy.toLocaleString('en-IN')}`;
+      chipStatusClass = "text-orange-500";
+    } else { // chipDiscrepancy < 0
+      chipStatusMessage = `Shortage: ${Math.abs(chipDiscrepancy).toLocaleString('en-IN')}`;
+      chipStatusClass = "text-red-500";
     }
+
+    let valueStatusMessage = "";
+    let valueStatusClass = "";
+    if (monetaryDiscrepancy === 0) {
+      valueStatusMessage = "Reconciled";
+    } else if (monetaryDiscrepancy > 0) {
+      valueStatusMessage = `Surplus: ${monetaryDiscrepancy.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`;
+      valueStatusClass = "text-orange-500";
+    } else { // monetaryDiscrepancy < 0
+      valueStatusMessage = `Shortage: ${Math.abs(monetaryDiscrepancy).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}`;
+      valueStatusClass = "text-red-500";
+    }
+
+    const showSettlementGuidance = totalActualChipsInPlay > 0 && derivedPayoutData.settlements.length > 0;
 
     return (
-        <div className="space-y-0.5 text-xs text-muted-foreground min-h-[64px]">
-            {(totalPot > 0 || totalActualChipsInPlay > 0) && (
-              <>
-                <p>Expected Total Chips (from Pot @ fixed value): {expectedTotalChips.toLocaleString('en-IN')}.</p>
-                {discrepancyChipMessage && <p className={chipDiscrepancy === 0 ? "" : (chipDiscrepancy > 0 ? "text-orange-500" : "text-red-500")}>{discrepancyChipMessage}</p>}
-                <p>Value of Actual Chips Entered (at fixed value): {valueOfActualChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}.</p>
-                {discrepancyMonetaryMessage && <p className={monetaryDiscrepancy === 0 ? "" : (monetaryDiscrepancy > 0 ? "text-orange-500" : "text-red-500")}>{discrepancyMonetaryMessage}</p>}
-              </>
-            )}
-            {totalActualChipsInPlay === 0 && totalPot === 0 && <p>Enter final chip counts. Total pot is ₹0.00.</p>}
-             { totalActualChipsInPlay > 0 && derivedPayoutData.settlements.length > 0 && 
-                <p className="mt-1">Settlements below are based on the fixed chip value. (Displayed amounts are halved for payment convenience)</p>
-            }
-        </div>
+      <div className="space-y-0.5 text-xs text-muted-foreground min-h-[48px]">
+        <p>
+          Chips: Exp. <strong>{expectedTotalChips.toLocaleString('en-IN')}</strong> | Act. <strong>{totalActualChipsInPlay.toLocaleString('en-IN')}</strong>
+          {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${chipStatusClass}`}>({chipStatusMessage})</span>}
+        </p>
+        <p>
+          Value: Exp. <strong>{totalPot.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong> | Act. <strong>{valueOfActualChips.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong>
+          {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${valueStatusClass}`}>({valueStatusMessage})</span>}
+        </p>
+        {showSettlementGuidance && 
+          <p className="mt-1 text-xs">Settlements below use fixed chip value (amounts halved for convenience).</p>
+        }
+      </div>
     );
   };
 
@@ -285,7 +295,7 @@ export function PayoutCalculator() {
           <Landmark className="h-6 w-6 text-primary" />
           <CardTitle>Final Payouts & Settlement</CardTitle>
         </div>
-        <CardDescription>Enter final chip counts to calculate net values and settlement transactions.</CardDescription>
+        <CardDescription>Enter final chip counts for net values and settlement. (Chip Value: ₹{FIXED_CHIP_VALUE_INR.toFixed(2)})</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="mb-6 p-4 border rounded-lg bg-card/50 space-y-2">
@@ -392,4 +402,6 @@ export function PayoutCalculator() {
     </Card>
   );
 }
+    
+
     

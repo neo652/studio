@@ -140,30 +140,12 @@ export function DashboardClient() {
         const pLiveChips = parseNumericField(player.chips) ?? 0;
 
         if (typeof pNetFromFinal === 'number') {
-          // netValueFromFinalChips is set (e.g., by PayoutCalculator).
-          // If finalChips are 0, totalInvested > 0, and pNetFromFinal shows a loss,
-          // display 0 for this table as per user request.
-          if (typeof pFinalChips === 'number' && pFinalChips === 0 && pTotalInvested > 0 && pNetFromFinal < 0) {
-            netVal = 0;
-          } else {
-            netVal = pNetFromFinal;
-          }
+          netVal = pNetFromFinal;
         } else if (typeof pFinalChips === 'number') {
-          // netValueFromFinalChips is NOT set, calculate from pFinalChips.
-          // If pFinalChips are 0 and pTotalInvested > 0, display 0 for this table.
-          if (pFinalChips === 0 && pTotalInvested > 0) {
-            netVal = 0;
-          } else {
-            netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          }
+          netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
         } else {
           // Fallback to live chips if no final chip data is available.
-          // If pLiveChips are 0 and pTotalInvested > 0, display 0 for this table.
-          if (pLiveChips === 0 && pTotalInvested > 0) {
-            netVal = 0;
-          } else {
-            netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
-          }
+          netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
         }
         
         if (process.env.NODE_ENV === 'development' && pName === 'Mayur' && selectedGame.id === 'S0yDJsx0tSKbwIfGomC0') { // Example debug condition

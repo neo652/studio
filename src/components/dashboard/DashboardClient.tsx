@@ -141,7 +141,9 @@ export function DashboardClient() {
         const pLiveChips = parseNumericField(player.chips) ?? 0;
 
         if (pNetFromFinal === null || pNetFromFinal === 0) {
-            netVal = pTotalInvested; // Show totalInvested as net value as per new requirement
+            // Show totalInvested as a NEGATIVE net value
+            // If totalInvested is 0, then -0 is still 0.
+            netVal = -pTotalInvested;
         } else {
             // pNetFromFinal is a non-null, non-zero number. This is the definitive value.
             netVal = pNetFromFinal;

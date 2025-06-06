@@ -135,33 +135,44 @@ export function DashboardClient() {
         const pTotalInvested = parseNumericField(player.totalInvested) ?? 0;
         let netVal: number;
 
-        // Priority: 1. netValueFromFinalChips, 2. finalChips, 3. live chips
         const pNetFromFinal = parseNumericField(player.netValueFromFinalChips);
         const pFinalChips = parseNumericField(player.finalChips);
         const pLiveChips = parseNumericField(player.chips) ?? 0;
 
         if (typeof pNetFromFinal === 'number') {
-          netVal = pNetFromFinal;
+          // netValueFromFinalChips is set (e.g., by PayoutCalculator).
+          // If finalChips are 0, totalInvested > 0, and pNetFromFinal shows a loss,
+          // display 0 for this table as per user request.
+          if (typeof pFinalChips === 'number' && pFinalChips === 0 && pTotalInvested > 0 && pNetFromFinal < 0) {
+            netVal = 0;
+          } else {
+            netVal = pNetFromFinal;
+          }
         } else if (typeof pFinalChips === 'number') {
-          netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          // netValueFromFinalChips is NOT set, calculate from pFinalChips.
+          // If pFinalChips are 0 and pTotalInvested > 0, display 0 for this table.
+          if (pFinalChips === 0 && pTotalInvested > 0) {
+            netVal = 0;
+          } else {
+            netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          }
         } else {
-          netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          // Fallback to live chips if no final chip data is available.
+          // If pLiveChips are 0 and pTotalInvested > 0, display 0 for this table.
+          if (pLiveChips === 0 && pTotalInvested > 0) {
+            netVal = 0;
+          } else {
+            netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          }
         }
         
-        if (process.env.NODE_ENV === 'development' && pName === 'Ankur' && selectedGame.id === 'S0yDJsx0tSKbwIfGomC0') {
+        if (process.env.NODE_ENV === 'development' && pName === 'Mayur' && selectedGame.id === 'S0yDJsx0tSKbwIfGomC0') { // Example debug condition
             console.log(`DashboardClient - Game ${selectedGame.id}, Player: ${pName}
-            - Raw chips from Firestore: ${player.chips}, Parsed: ${pLiveChips}
-            - Raw totalInvested from Firestore: ${player.totalInvested}, Parsed: ${pTotalInvested}
-            - Raw finalChips from Firestore: ${player.finalChips}, Parsed: ${pFinalChips}
-            - Raw netValueFromFinalChips from Firestore: ${player.netValueFromFinalChips}, Parsed: ${pNetFromFinal}
+            - Raw chips from Firestore: ${player.chips}, Parsed Live: ${pLiveChips}
+            - Raw totalInvested from Firestore: ${player.totalInvested}, Parsed Invested: ${pTotalInvested}
+            - Raw finalChips from Firestore: ${player.finalChips}, Parsed Final: ${pFinalChips}
+            - Raw netValueFromFinalChips from Firestore: ${player.netValueFromFinalChips}, Parsed NetFromFinal: ${pNetFromFinal}
             - Calculated Net Value for GameStatsTable: ${netVal}`);
-        }
-        if (process.env.NODE_ENV === 'development') {
-            const gameForLog = games.find(g => g.id === selectedGameId);
-            if(gameForLog) {
-                // console.log(`DashboardClient - Game ${selectedGameId} Data for Player ${player.name}:`, JSON.parse(JSON.stringify(player)));
-                // console.log(`DashboardClient - Calculated Net Value for ${player.name} in Game ${selectedGameId}: ${netVal}`);
-            }
         }
         
         return {
@@ -292,3 +303,5 @@ export function DashboardClient() {
     </div>
   );
 }
+
+    

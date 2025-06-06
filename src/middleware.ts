@@ -6,6 +6,15 @@ export function middleware(request: NextRequest) {
   const user = process.env.BASIC_AUTH_USER;
   const pass = process.env.BASIC_AUTH_PASS;
 
+  // Bypass auth for *.cloudworkstations.dev domains
+  const host = request.headers.get('host') || request.nextUrl.hostname;
+  if (host && host.endsWith('.cloudworkstations.dev')) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`Middleware: Bypassing auth for Cloud Workstations host: ${host}`);
+    }
+    return NextResponse.next();
+  }
+
   if (!user || !pass) {
     console.error('Basic Auth credentials not set in environment variables for protected routes.');
     // Return a generic error rather than exposing missing config

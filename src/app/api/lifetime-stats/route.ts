@@ -8,7 +8,7 @@ const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calcula
 
 // Helper function from DashboardClient.tsx (could be moved to a shared utils if used elsewhere)
 const parseNumericField = (value: any): number | null => {
-  if (typeof value === 'number') {
+  if (typeof value === 'number' && !isNaN(value)) { // Handles 0 correctly and prevents passing NaN
     return value;
   }
   if (value === null || value === undefined || value === '') {
@@ -44,10 +44,10 @@ export async function GET() {
       const loadedPlayers = (data.players || []).map((p: any): PlayerType => ({
         id: p.id || `unknown-${Math.random()}`,
         name: p.name || "Unknown Player",
-        chips: Number(p.chips) || 0,
-        totalInvested: Number(p.totalInvested) || 0,
-        finalChips: parseNumericField(p.finalChips),
-        netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips),
+        chips: Number(p.chips) || 0, // Current chips (live or at end of game if not finalized)
+        totalInvested: Number(p.totalInvested) || 0, // Ensures it's a number, defaults to 0
+        finalChips: parseNumericField(p.finalChips), // From payout calculator
+        netValueFromFinalChips: parseNumericField(p.netValueFromFinalChips), // From payout calculator
       }));
 
       fetchedGames.push({
@@ -78,20 +78,18 @@ export async function GET() {
             };
           }
           const current = lifetimeMap[player.name];
-          const pTotalInvested = player.totalInvested;
+          
+          const pTotalInvested = player.totalInvested; // Guaranteed to be a number by mapping
+          const pNetFromFinal = player.netValueFromFinalChips; // number | null
           let gameNetVal;
 
-          // Prioritize netValueFromFinalChips, then finalChips, then live chips
-          const pNetFromFinal = player.netValueFromFinalChips;
-          const pFinalChips = player.finalChips;
-          const pLiveChips = player.chips;
-
-          if (typeof pNetFromFinal === 'number') {
-            gameNetVal = pNetFromFinal;
-          } else if (typeof pFinalChips === 'number') {
-            gameNetVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          if (pNetFromFinal === null || pNetFromFinal === 0) {
+            // If netValueFromFinalChips is null or 0, this game's contribution is -totalInvested.
+            // If totalInvested is 0, then gameNetVal is 0.
+            gameNetVal = -pTotalInvested;
           } else {
-            gameNetVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+            // pNetFromFinal is a non-null, non-zero number. This is the definitive value for the game.
+            gameNetVal = pNetFromFinal;
           }
           
           current.gamesPlayed += 1;

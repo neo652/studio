@@ -136,16 +136,15 @@ export function DashboardClient() {
         let netVal: number;
 
         const pNetFromFinal = parseNumericField(player.netValueFromFinalChips);
+        // These are kept for potential debug logging, but not directly used in the new primary logic if overridden
         const pFinalChips = parseNumericField(player.finalChips);
         const pLiveChips = parseNumericField(player.chips) ?? 0;
 
-        if (typeof pNetFromFinal === 'number') {
-          netVal = pNetFromFinal;
-        } else if (typeof pFinalChips === 'number') {
-          netVal = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+        if (pNetFromFinal === null || pNetFromFinal === 0) {
+            netVal = pTotalInvested; // Show totalInvested as net value as per new requirement
         } else {
-          // Fallback to live chips if no final chip data is available.
-          netVal = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+            // pNetFromFinal is a non-null, non-zero number. This is the definitive value.
+            netVal = pNetFromFinal;
         }
         
         if (process.env.NODE_ENV === 'development' && pName === 'Mayur' && selectedGame.id === 'S0yDJsx0tSKbwIfGomC0') { // Example debug condition

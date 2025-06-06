@@ -62,18 +62,15 @@ export function PayoutCalculator() {
       const finalChipValueOfInput = roundTo(finalNumericValueForContext * FIXED_CHIP_VALUE_INR, 2);
       const playerTotalInvested = playerFromContext.totalInvested;
 
-      if (playerTotalInvested < 0) {
-        calculatedNetAmountForContext = roundTo(finalChipValueOfInput + playerTotalInvested, 2);
-      } else {
-        calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
-      }
+      // Universal calculation: Final Value - Total Invested
+      calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
       
       if (process.env.NODE_ENV === 'development') {
         console.log(`PayoutCalc onChange Debug for ${playerFromContext.name} (ID: ${playerId}):
           - Input Display Value: "${currentDisplayValue}"
           - Parsed Final Chips (numeric): ${finalNumericValueForContext}
           - Player Total Invested (context): ${playerFromContext.totalInvested}
-          - Calculated Net Amount (new logic): ${calculatedNetAmountForContext}`);
+          - Calculated Net Amount (universal logic): ${calculatedNetAmountForContext}`);
       }
       updatePlayerFinalStats(playerId, finalNumericValueForContext, calculatedNetAmountForContext);
 
@@ -118,18 +115,15 @@ export function PayoutCalculator() {
     const finalChipValueOfInput = roundTo(finalNumericValueForContext * FIXED_CHIP_VALUE_INR, 2);
     const playerTotalInvested = playerFromContext.totalInvested;
 
-    if (playerTotalInvested < 0) {
-        calculatedNetAmountForContext = roundTo(finalChipValueOfInput + playerTotalInvested, 2);
-      } else {
-        calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
-      }
+    // Universal calculation: Final Value - Total Invested
+    calculatedNetAmountForContext = roundTo(finalChipValueOfInput - playerTotalInvested, 2);
 
     if (process.env.NODE_ENV === 'development') {
         console.log(`PayoutCalc onBlur Debug for ${playerFromContext.name} (ID: ${playerId}):
           - Original Input: "${currentDisplayValue}", Finalized String: "${finalStringForDisplay}"
           - Final Chips (numeric): ${finalNumericValueForContext}
           - Player Total Invested (context): ${playerTotalInvested}
-          - Calculated Net Amount (new logic): ${calculatedNetAmountForContext}`);
+          - Calculated Net Amount (universal logic): ${calculatedNetAmountForContext}`);
     }
     // Persist the potentially corrected/defaulted value to context
     updatePlayerFinalStats(playerId, finalNumericValueForContext, calculatedNetAmountForContext);
@@ -146,11 +140,8 @@ export function PayoutCalculator() {
       if (typeof player.netValueFromFinalChips === 'number') {
         netAmount = player.netValueFromFinalChips; 
       } else {
-        if (playerTotalInvested < 0) {
-          netAmount = roundTo(finalChipValueForDisplay + playerTotalInvested, 2);
-        } else {
-          netAmount = roundTo(finalChipValueForDisplay - playerTotalInvested, 2);
-        }
+        // Fallback calculation: Universal Final Value - Total Invested
+        netAmount = roundTo(finalChipValueForDisplay - playerTotalInvested, 2);
       }
 
       return {
@@ -195,7 +186,7 @@ export function PayoutCalculator() {
       const creditor = tempCreditors[0];
       const amountToTransfer = roundTo(Math.min(debtor.amount, creditor.amount), 2);
 
-      if (amountToTransfer > 0.005) {
+      if (amountToTransfer > 0.005) { // Threshold to avoid tiny settlements
         settlements.push({
           id: `settlement-${keyId++}`,
           fromPlayerName: debtor.name,
@@ -205,6 +196,7 @@ export function PayoutCalculator() {
         debtor.amount = roundTo(debtor.amount - amountToTransfer, 2);
         creditor.amount = roundTo(creditor.amount - amountToTransfer, 2);
       } else { 
+        // If amount is too small, break to prevent infinite loops with floating point inaccuracies
         break; 
       }
 
@@ -221,7 +213,7 @@ export function PayoutCalculator() {
       calculatedPlayers: playersWithCalculations,
       settlements,
     };
-  }, [contextPlayers, totalPot]); 
+  }, [contextPlayers, totalPot]); // Dependencies
 
 
   const getReconciliationMessages = () => {
@@ -267,7 +259,6 @@ export function PayoutCalculator() {
           Chips: Exp. <strong>{expectedTotalChips.toLocaleString('en-IN')}</strong> | Act. <strong>{totalActualChipsInPlay.toLocaleString('en-IN')}</strong>
           {(totalPot > 0 || totalActualChipsInPlay > 0) && <span className={`ml-1 ${chipStatusClass}`}>({chipStatusMessage})</span>}
         </p>
-        {/* Removed Value reconciliation line as requested */}
         {settlementGuidance}
       </div>
     );
@@ -281,7 +272,7 @@ export function PayoutCalculator() {
           <CardTitle>Final Payouts</CardTitle>
         </div>
         <CardDescription>
-          {/* Description removed as per user request */}
+          {/* Description intentionally empty for brevity */}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -390,3 +381,4 @@ export function PayoutCalculator() {
     
 
     
+

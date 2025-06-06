@@ -2,22 +2,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export function middleware(request: NextRequest) {
+  // Bypass auth for *.cloudworkstations.dev domains
+  const currentHostname = request.nextUrl.hostname;
+
+  if (typeof currentHostname === 'string' && currentHostname.toLowerCase().endsWith('.cloudworkstations.dev')) {
+    return NextResponse.next();
+  }
+
+  // If not a cloudworkstations.dev domain, proceed with basic auth check
   const basicAuth = request.headers.get('authorization');
   const user = process.env.BASIC_AUTH_USER;
   const pass = process.env.BASIC_AUTH_PASS;
 
-  // Bypass auth for *.cloudworkstations.dev domains
-  const host = request.headers.get('host') || request.nextUrl.hostname;
-  if (host && host.endsWith('.cloudworkstations.dev')) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Middleware: Bypassing auth for Cloud Workstations host: ${host}`);
-    }
-    return NextResponse.next();
-  }
-
   if (!user || !pass) {
-    console.error('Basic Auth credentials not set in environment variables for protected routes.');
-    // Return a generic error rather than exposing missing config
+    // console.error('Basic Auth credentials not set in environment variables for protected routes.');
     return new NextResponse('Configuration error.', { status: 500 });
   }
 
@@ -31,7 +29,7 @@ export function middleware(request: NextRequest) {
           return NextResponse.next();
         }
       } catch (e) {
-        console.error("Error decoding Basic Auth credentials:", e);
+        // console.error("Error decoding Basic Auth credentials:", e);
         // Fall through to return 401 if decoding fails
       }
     }
@@ -49,4 +47,3 @@ export function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/api/lifetime-stats/:path*', '/dashboard/:path*'], // Protect dashboard and its API
 };
-

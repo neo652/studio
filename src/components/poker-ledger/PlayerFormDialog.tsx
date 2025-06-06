@@ -30,7 +30,7 @@ import type { Player } from "@/types/poker";
 import { useToast } from "@/hooks/use-toast";
 import * as React from "react"; // Ensure React is imported for useState, useEffect
 
-const DEFAULT_PLAYER_NAMES = ["Ankur", "Piyush", "Udit", "Nishant", "Ayush", "Anurag", "Mayur", "Vijay", "Anubhav", "Shaloo", "Shipra", "Seema", "Nikunj"];
+const DEFAULT_PLAYER_NAMES = ["Ankur", "Anubhav", "Anurag", "Ayush", "Deepak", "Mayur", "Nikunj", "Nishant", "Piyush", "Seema", "Shaloo", "Shipra", "Udit", "Vijay"].sort();
 
 // Schema for 'add' mode
 const addModeFormSchema = z.object({

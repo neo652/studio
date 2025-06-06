@@ -30,8 +30,6 @@ interface PlayerGameData {
   gameDate: string; // For tooltip
 }
 
-const DASHBOARD_CHIP_VALUE = 1; // Each chip is worth ₹1 for dashboard calculations
-
 // Helper to parse numeric fields robustly
 const parsePlayerNumericField = (value: any): number | null => {
   if (typeof value === 'number' && !isNaN(value)) {
@@ -61,15 +59,13 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
         let netAmount = 0;
         const pTotalInvested = parsePlayerNumericField(playerDataInGame.totalInvested) ?? 0;
         const pNetFromFinal = parsePlayerNumericField(playerDataInGame.netValueFromFinalChips);
-        const pFinalChips = parsePlayerNumericField(playerDataInGame.finalChips);
-        const pLiveChips = parsePlayerNumericField(playerDataInGame.chips) ?? 0;
-
-        if (typeof pNetFromFinal === 'number') {
-          netAmount = pNetFromFinal;
-        } else if (typeof pFinalChips === 'number') {
-          netAmount = (pFinalChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+        
+        // Apply the new logic: if netValueFromFinalChips is null or 0, use -totalInvested
+        if (pNetFromFinal === null || pNetFromFinal === 0) {
+          netAmount = -pTotalInvested;
         } else {
-          netAmount = (pLiveChips * DASHBOARD_CHIP_VALUE) - pTotalInvested;
+          // Otherwise, use the non-zero pNetFromFinal
+          netAmount = pNetFromFinal;
         }
         
         playerGames.push({
@@ -191,3 +187,4 @@ export function LifetimeStatsChart({ stats, allGamesData }: LifetimeStatsChartPr
     </div>
   );
 }
+
